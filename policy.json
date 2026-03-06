@@ -1,0 +1,56 @@
+{
+  "_comment": "Policy config — edit to tune agent permissions. Hot-reloadable via POST /api/policy",
+  "reserveSol":            0.05,
+  "maxPerTxSol":           0.5,
+  "dailyLimitSol":         2.0,
+  "cooldownSeconds":       10,
+  "approvalThresholdSol":  1.0,
+  "allowedPrograms":       [],
+  "allowedDestinations":   [],
+
+  "_comment_pause": "Emergency kill switch — set true to halt ALL agent execution immediately",
+  "emergencyPause":        false,
+  "pausedAt":              null,
+  "pauseReason":           null,
+
+  "_comment_scopes": "Per-agent skill allowlists. Empty array = agent allowed all skills.",
+  "agentScopes": {
+    "sable":   ["jupiter_swap"],
+    "nova":    ["jupiter_swap"],
+    "axiom":   ["get_sol_price", "marginfi_get_rates"],
+    "crest":   ["get_stake_rate", "marinade_stake"],
+    "pilot":   ["autopilot_create_rule", "autopilot_list_rules", "autopilot_delete_rule", "autopilot_toggle_rule", "marinade_stake", "jupiter_swap"],
+    "harvest": ["get_sol_price", "marginfi_get_rates", "get_stake_rate", "get_quote", "marinade_stake"],
+    "ledger":  ["get_balance", "get_portfolio", "get_yield_summary", "get_snapshots", "get_portfolio_pnl"],
+    "shield":  ["get_alerts", "ack_alerts", "guardian_status", "get_balance", "get_portfolio", "get_sol_price"],
+    "pay":     ["create_payment_request", "list_payment_requests", "cancel_payment_request", "check_payment_status"]
+  },
+
+  "_comment_velocity": "Per-agent per-minute spend velocity auto-freeze threshold (SOL). 0 = disabled.",
+  "velocityFreezeSol":     0.1,
+  "_comment_sessions": "If true, fund-moving skills require a valid owner-issued session scope.",
+  "requireSessionForFunds": false,
+  "enforceSessionBoundProof": true,
+  "_comment_mev": "MEV/Fee profile layering: mevProfileDefault < roleMevProfiles[role] < agentMevProfiles[agentName]",
+  "mevProfileDefault": {
+    "protectionMode": "auto",
+    "baseSlippageBps": 50,
+    "minSlippageBps": 30,
+    "maxSlippageBps": 250,
+    "priorityMultiplier": 1.0,
+    "highCongestionMultiplier": 1.25,
+    "mediumCongestionMultiplier": 1.1,
+    "minPriorityFeeLamports": 8000,
+    "maxPriorityFeeLamports": 200000
+  },
+  "roleMevProfiles": {
+    "trader_bear": { "protectionMode": "protected_rpc", "priorityMultiplier": 1.2, "baseSlippageBps": 45 },
+    "trader_bull": { "protectionMode": "protected_rpc", "priorityMultiplier": 1.2, "baseSlippageBps": 45 },
+    "autopilot":   { "protectionMode": "auto", "priorityMultiplier": 1.0, "baseSlippageBps": 50 }
+  },
+  "agentMevProfiles": {
+    "sable": { "protectionMode": "protected_rpc", "priorityMultiplier": 1.25, "baseSlippageBps": 40 },
+    "nova":  { "protectionMode": "protected_rpc", "priorityMultiplier": 1.25, "baseSlippageBps": 40 }
+  },
+  "frozenAgents":          []
+}

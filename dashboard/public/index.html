@@ -1,0 +1,3493 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solana Agent Wallet</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
+
+    :root {
+      color-scheme: dark;
+      --bg: #05070f;
+      --bg-soft: #0d1221;
+      --bg-gradient:
+        radial-gradient(1000px 520px at 88% -10%, rgba(87, 184, 255, 0.26), transparent 60%),
+        radial-gradient(840px 500px at -10% 0%, rgba(77, 225, 188, 0.2), transparent 62%);
+
+      --surface-rail: linear-gradient(165deg, rgba(17, 27, 48, 0.92), rgba(11, 17, 31, 0.92));
+      --surface-main: linear-gradient(165deg, rgba(13, 18, 33, 0.8), rgba(9, 13, 24, 0.93));
+      --surface-topbar: rgba(9, 14, 28, 0.8);
+      --surface-card: linear-gradient(160deg, rgba(21, 33, 61, 0.75), rgba(14, 21, 38, 0.88));
+      --surface-card-soft: rgba(255, 255, 255, 0.02);
+      --surface-table: rgba(255, 255, 255, 0.015);
+      --surface-table-head: rgba(12, 18, 33, 0.98);
+      --surface-field: rgba(5, 9, 18, 0.5);
+      --surface-modal: linear-gradient(165deg, rgba(16, 24, 44, 0.97), rgba(10, 15, 29, 0.97));
+      --surface-modal-overlay: rgba(2, 5, 10, 0.72);
+      --surface-inline-note: rgba(77, 225, 188, 0.09);
+      --surface-inline-note-text: #c8fef0;
+      --surface-pre: rgba(0, 0, 0, 0.28);
+      --surface-toast: rgba(14, 22, 40, 0.95);
+      --surface-mobile-nav: rgba(9, 14, 27, 0.98);
+      --surface-nav-hover: rgba(255, 255, 255, 0.03);
+      --surface-chip: rgba(255, 255, 255, 0.06);
+      --surface-row-hover: rgba(255, 255, 255, 0.02);
+
+      --line: rgba(149, 172, 216, 0.2);
+      --line-strong: rgba(149, 172, 216, 0.35);
+      --text: #f4f8ff;
+      --text-dim: #9bb0d6;
+      --text-pre: #c9d8f6;
+      --brand: #4de1bc;
+      --brand-2: #57b8ff;
+      --brand-ink: #03131b;
+      --warn: #ffcc66;
+      --danger: #ff6b8a;
+      --ok: #51dc8a;
+      --chip: var(--surface-chip);
+      --shadow: 0 18px 70px rgba(0, 0, 0, 0.45);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --mono: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    body[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f3f5fa;
+      --bg-soft: #ffffff;
+      --bg-gradient:
+        radial-gradient(980px 560px at 86% -12%, rgba(84, 125, 255, 0.2), transparent 62%),
+        radial-gradient(760px 500px at -8% 0%, rgba(39, 194, 156, 0.16), transparent 60%);
+
+      --surface-rail: linear-gradient(165deg, rgba(255, 255, 255, 0.97), rgba(245, 248, 255, 0.97));
+      --surface-main: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 255, 0.98));
+      --surface-topbar: rgba(255, 255, 255, 0.88);
+      --surface-card: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(244, 247, 255, 0.96));
+      --surface-card-soft: rgba(7, 12, 30, 0.035);
+      --surface-table: rgba(255, 255, 255, 0.8);
+      --surface-table-head: rgba(247, 249, 255, 0.98);
+      --surface-field: rgba(248, 250, 255, 0.9);
+      --surface-modal: linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 255, 0.98));
+      --surface-modal-overlay: rgba(12, 16, 28, 0.45);
+      --surface-inline-note: rgba(60, 198, 151, 0.14);
+      --surface-inline-note-text: #146b53;
+      --surface-pre: rgba(241, 244, 255, 0.94);
+      --surface-toast: rgba(255, 255, 255, 0.96);
+      --surface-mobile-nav: rgba(255, 255, 255, 0.98);
+      --surface-nav-hover: rgba(14, 22, 40, 0.04);
+      --surface-chip: rgba(17, 24, 39, 0.06);
+      --surface-row-hover: rgba(32, 48, 90, 0.04);
+
+      --line: rgba(45, 68, 124, 0.16);
+      --line-strong: rgba(45, 68, 124, 0.28);
+      --text: #121826;
+      --text-dim: #5f6f95;
+      --text-pre: #1b2a4f;
+      --brand: #2cc59d;
+      --brand-2: #3f8cff;
+      --brand-ink: #061f16;
+      --warn: #ce8a19;
+      --danger: #ce476a;
+      --ok: #12aa62;
+      --shadow: 0 18px 62px rgba(33, 52, 98, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg-gradient), var(--bg);
+      color: var(--text);
+      font-family: "Manrope", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      transition: background 220ms ease, color 220ms ease;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .app {
+      width: min(1420px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      gap: 18px;
+      padding: 18px;
+      min-height: 100vh;
+    }
+
+    .rail {
+      border: 1px solid var(--line);
+      background: var(--surface-rail);
+      border-radius: 22px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 18px;
+      height: calc(100vh - 36px);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.3px;
+      font-size: 19px;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .nav-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-dim);
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .nav-btn:hover {
+      border-color: var(--line);
+      background: var(--surface-nav-hover);
+      color: var(--text);
+      transform: translateX(1px);
+    }
+
+    .nav-btn.active {
+      color: var(--brand-ink);
+      background: linear-gradient(130deg, var(--brand), #9af7df);
+      border-color: transparent;
+      box-shadow: 0 12px 30px rgba(77, 225, 188, 0.3);
+    }
+
+    .rail-foot {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--chip);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .main {
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: var(--surface-main);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 8;
+      backdrop-filter: blur(10px);
+      background: var(--surface-topbar);
+    }
+
+    .wallet-head {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .wallet-title {
+      font-size: 14px;
+      font-weight: 760;
+      letter-spacing: 0.2px;
+      margin: 0;
+    }
+
+    .wallet-sub {
+      margin: 0;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-family: var(--mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 480px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: var(--surface-nav-hover);
+      border-radius: 11px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      border-color: var(--line-strong);
+      transform: translateY(-1px);
+    }
+
+    .btn.brand {
+      border-color: transparent;
+      color: var(--brand-ink);
+      background: linear-gradient(140deg, var(--brand), #9af7df);
+      box-shadow: 0 10px 24px rgba(77, 225, 188, 0.3);
+    }
+
+    .btn.warn {
+      border-color: rgba(255, 204, 102, 0.35);
+      color: #ffdb9a;
+      background: rgba(255, 204, 102, 0.12);
+    }
+
+    .btn.danger {
+      border-color: rgba(255, 107, 138, 0.35);
+      color: #ffc0cf;
+      background: rgba(255, 107, 138, 0.14);
+    }
+
+    .btn.ghost { background: transparent; }
+
+    .content {
+      padding: 18px;
+      overflow: auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .view { display: none; }
+    .view.active { display: grid; gap: 16px; }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+
+    .card {
+      border: 1px solid var(--line);
+      background: var(--surface-card);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      min-width: 0;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-dim);
+      font-weight: 740;
+      letter-spacing: 0.2px;
+    }
+
+    .card .title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 780;
+      letter-spacing: 0.1px;
+      color: var(--text);
+    }
+
+    .balance {
+      font-size: clamp(30px, 4.2vw, 44px);
+      font-weight: 830;
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.3px;
+      margin: 6px 0 4px;
+    }
+
+    .muted { color: var(--text-dim); }
+    .mono { font-family: var(--mono); }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-card-soft);
+      padding: 11px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric .k { font-size: 12px; color: var(--text-dim); }
+    .metric .v { font-size: 21px; font-weight: 780; font-family: "Space Grotesk", sans-serif; }
+
+    .timeline {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .timeline-step {
+      border: 1px solid var(--line);
+      background: var(--surface-card-soft);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .tag {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 3px 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      background: var(--surface-card-soft);
+    }
+
+    .tag.ok { border-color: rgba(81, 220, 138, 0.45); color: #9af4be; background: rgba(81, 220, 138, 0.12); }
+    .tag.warn { border-color: rgba(255, 204, 102, 0.48); color: #ffe1a0; background: rgba(255, 204, 102, 0.1); }
+    .tag.danger { border-color: rgba(255, 107, 138, 0.45); color: #ffc1d0; background: rgba(255, 107, 138, 0.11); }
+    .tag.info { border-color: rgba(87, 184, 255, 0.45); color: #b9e2ff; background: rgba(87, 184, 255, 0.12); }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: var(--surface-card-soft);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .item .head {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .item .name {
+      font-size: 12px;
+      font-weight: 720;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item .meta {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .table-wrap {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      overflow: auto;
+      background: var(--surface-table);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 840px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--surface-table-head);
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tbody td {
+      padding: 11px 12px;
+      border-bottom: 1px solid rgba(149, 172, 216, 0.12);
+      font-size: 12px;
+      vertical-align: top;
+    }
+
+    tbody tr:hover { background: var(--surface-row-hover); }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    .section-head p {
+      margin: 4px 0 0;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .filter-btn {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--text-dim);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .filter-btn.active {
+      color: var(--brand-ink);
+      border-color: transparent;
+      background: linear-gradient(140deg, var(--brand), #9af7df);
+    }
+
+    .form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .form-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border-radius: 11px;
+      border: 1px solid var(--line);
+      background: var(--surface-field);
+      color: var(--text);
+      padding: 10px;
+      font-size: 13px;
+      font-family: "Manrope", sans-serif;
+      outline: none;
+    }
+
+    .field textarea {
+      min-height: 110px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: rgba(87, 184, 255, 0.6);
+      box-shadow: 0 0 0 3px rgba(87, 184, 255, 0.16);
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      color: var(--text-dim);
+      font-size: 12px;
+      text-align: center;
+      background: var(--surface-table);
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: var(--surface-modal-overlay);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      z-index: 60;
+    }
+
+    .modal.open { display: flex; }
+
+    .modal-card {
+      width: min(560px, 100%);
+      border: 1px solid var(--line-strong);
+      border-radius: 18px;
+      background: var(--surface-modal);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .modal-head h3 {
+      margin: 0;
+      font-size: 18px;
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    .modal-head p {
+      margin: 4px 0 0;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    .modal-close {
+      border: 1px solid var(--line);
+      background: var(--surface-card-soft);
+      color: var(--text-dim);
+      border-radius: 9px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .inline-note {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--surface-inline-note);
+      color: var(--surface-inline-note-text);
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    .status-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 10px;
+    }
+
+    .status-item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-card-soft);
+      padding: 10px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .status-item .k {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.55px;
+      font-weight: 700;
+    }
+
+    .status-item .v {
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .status-item .v.good { color: #9af4be; }
+    .status-item .v.warn { color: #ffe1a0; }
+    .status-item .v.bad { color: #ffc1d0; }
+
+    .onboarding {
+      display: grid;
+      gap: 12px;
+    }
+
+    .onboarding .count {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.65px;
+      font-weight: 700;
+    }
+
+    .onboarding h4 {
+      margin: 0;
+      font-size: 19px;
+      font-family: "Space Grotesk", sans-serif;
+      letter-spacing: 0.2px;
+    }
+
+    .onboarding p {
+      margin: 0;
+      color: var(--text-dim);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .setting-groups {
+      display: grid;
+      gap: 14px;
+    }
+
+    .setting-group {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-card-soft);
+      overflow: hidden;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      width: 100%;
+      background: transparent;
+      color: inherit;
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+      text-align: left;
+      cursor: pointer;
+      appearance: none;
+    }
+
+    .setting-row:last-child { border-bottom: 0; }
+
+    .setting-row .left {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .setting-row select {
+      min-width: 132px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface-field);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .setting-row select:focus {
+      border-color: rgba(87, 184, 255, 0.6);
+      box-shadow: 0 0 0 3px rgba(87, 184, 255, 0.16);
+    }
+
+    .setting-row .title {
+      font-size: 14px;
+      font-weight: 760;
+      letter-spacing: 0.1px;
+      color: var(--text);
+    }
+
+    .setting-row .desc {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .setting-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface-card-soft);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 800;
+      margin-right: 10px;
+      flex: none;
+    }
+
+    .setting-inline {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .theme-preview {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .theme-chip {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-card-soft);
+      padding: 10px;
+      display: grid;
+      gap: 7px;
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.55px;
+      font-weight: 700;
+    }
+
+    .theme-chip .swatches {
+      display: flex;
+      gap: 6px;
+    }
+
+    .theme-chip .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+    }
+
+    .theme-chip.dark .dot:nth-child(1) { background: #080b15; }
+    .theme-chip.dark .dot:nth-child(2) { background: #57b8ff; }
+    .theme-chip.dark .dot:nth-child(3) { background: #4de1bc; }
+    .theme-chip.light .dot:nth-child(1) { background: #f4f7ff; }
+    .theme-chip.light .dot:nth-child(2) { background: #3f8cff; }
+    .theme-chip.light .dot:nth-child(3) { background: #2cc59d; }
+    .theme-chip.auto .dot:nth-child(1) { background: linear-gradient(90deg, #080b15 50%, #f4f7ff 50%); }
+    .theme-chip.auto .dot:nth-child(2) { background: #5f7fff; }
+    .theme-chip.auto .dot:nth-child(3) { background: #35c8a1; }
+
+    .theme-meta {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .swap-shell {
+      display: grid;
+      gap: 10px;
+    }
+
+    .swap-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-card-soft);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .swap-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .swap-token-row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+    }
+
+    .swap-token-row select {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-field);
+      color: var(--text);
+      padding: 10px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      outline: none;
+      min-width: 140px;
+    }
+
+    .swap-amount {
+      width: 140px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text);
+      font-size: 30px;
+      font-weight: 820;
+      text-align: right;
+      padding: 0 4px;
+      outline: none;
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    .swap-quick {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .swap-quick button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-card-soft);
+      color: var(--text-dim);
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .swap-separator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .swap-separator button {
+      border: 1px solid var(--line);
+      background: var(--surface-main);
+      color: var(--text);
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .swap-preview {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-card-soft);
+      padding: 10px;
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .swap-preview .value {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 760;
+    }
+
+    .swap-advanced {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-card-soft);
+      padding: 8px 10px;
+    }
+
+    .swap-advanced summary {
+      cursor: pointer;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      list-style: none;
+    }
+
+    .swap-advanced summary::-webkit-details-marker { display: none; }
+
+    .rail, .main, .card, .modal-card, .btn, .item, .metric, .status-item, .setting-group, .setting-row, .theme-chip {
+      transition: background 220ms ease, border-color 220ms ease, color 220ms ease, box-shadow 220ms ease, transform 160ms ease;
+    }
+
+    .app {
+      width: min(1420px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px;
+      min-height: 100vh;
+    }
+
+    .rail { display: flex; }
+
+    .main {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      min-height: calc(100vh - 36px);
+      background: var(--surface-main);
+      overflow: hidden;
+    }
+
+    .content {
+      padding: 12px 14px 24px;
+      gap: 12px;
+    }
+
+    .wallet-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      background: color-mix(in srgb, var(--surface-topbar) 86%, transparent);
+      backdrop-filter: blur(14px);
+    }
+
+    .site-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .site-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 760;
+      letter-spacing: 0.25px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 280px;
+    }
+
+    .site-sub {
+      margin: 0;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .top-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface-card-soft);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .topbar-actions.compact {
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .wallet-hero {
+      border-radius: 22px;
+      padding: 14px;
+      background: linear-gradient(170deg, color-mix(in srgb, var(--surface-card) 78%, transparent), color-mix(in srgb, var(--surface-main) 76%, transparent));
+    }
+
+    .wallet-address-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .wallet-address-chip {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size: 15px;
+      font-weight: 780;
+      letter-spacing: 0.2px;
+      color: var(--text);
+      background: var(--surface-card-soft);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .home-balance {
+      font-size: 56px;
+      line-height: 0.95;
+      font-weight: 850;
+      letter-spacing: -0.8px;
+      margin: 8px 0 2px;
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    .wallet-actions-main {
+      display: grid;
+      grid-template-columns: repeat(3, 56px) 1fr;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .round-action {
+      width: 56px;
+      height: 56px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface-card-soft);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .swap-main-btn {
+      height: 56px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: linear-gradient(140deg, #f2f4f8, #ffffff);
+      color: #151925;
+      font-size: 30px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      letter-spacing: 0.2px;
+    }
+
+    body[data-theme="light"] .swap-main-btn {
+      background: #121724;
+      color: #f9fbff;
+    }
+
+    .premium-card {
+      border: 1px solid color-mix(in srgb, var(--line) 80%, #7e6dff 20%);
+      border-radius: 22px;
+      padding: 16px;
+      background:
+        radial-gradient(280px 140px at 90% 0%, rgba(138, 81, 255, 0.3), transparent 70%),
+        linear-gradient(120deg, rgba(67, 125, 255, 0.5), rgba(225, 97, 184, 0.42));
+      color: #f7fbff;
+    }
+
+    .premium-title {
+      margin: 0;
+      font-size: 34px;
+      line-height: 0.95;
+      letter-spacing: -0.6px;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 820;
+    }
+
+    .home-tabs {
+      display: flex;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      margin: 4px 0 0;
+      padding: 0 2px 8px;
+    }
+
+    .home-tabs button {
+      border: 0;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 17px;
+      font-weight: 760;
+      padding: 0;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .home-tabs button.active {
+      color: var(--text);
+    }
+
+    .home-tabs button.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -9px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--text);
+    }
+
+    .wallet-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .asset-row {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-card-soft);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .asset-row .left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .asset-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-field);
+      font-size: 18px;
+    }
+
+    .asset-name {
+      font-size: 15px;
+      font-weight: 760;
+      color: var(--text);
+    }
+
+    .asset-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .asset-val {
+      text-align: right;
+    }
+
+    .asset-val .usd {
+      font-size: 16px;
+      font-weight: 780;
+      color: var(--text);
+    }
+
+    .asset-val .chg {
+      font-size: 11px;
+      color: var(--ok);
+    }
+
+    .pre {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-pre);
+      padding: 10px;
+      color: var(--text-pre);
+      font-family: var(--mono);
+      font-size: 11px;
+      white-space: pre-wrap;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 90;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface-toast);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      min-width: 220px;
+      display: none;
+    }
+
+    .toast.show { display: block; }
+
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      left: 50%;
+      right: auto;
+      bottom: 0;
+      z-index: 50;
+      width: min(720px, calc(100% - 18px));
+      transform: translateX(-50%);
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 18px 18px 0 0;
+      background: var(--surface-mobile-nav);
+      backdrop-filter: blur(10px);
+      padding: 9px 8px 10px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.24);
+    }
+
+    .mobile-nav button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-dim);
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 8px 4px;
+      cursor: pointer;
+    }
+
+    .mobile-nav button.active {
+      color: var(--brand-ink);
+      background: linear-gradient(135deg, var(--brand), #9af7df);
+    }
+
+    @media (min-width: 1080px) {
+      #view-home {
+        grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+        gap: 14px;
+        align-items: start;
+      }
+      #view-home .wallet-hero,
+      #view-home .premium-card,
+      #view-home .home-safety-card {
+        grid-column: 1;
+      }
+      #view-home .home-tabs-main,
+      #view-home .home-assets-list,
+      #view-home .home-outcome-card,
+      #view-home .home-activity-card {
+        grid-column: 2;
+      }
+    }
+
+    @media (max-width: 1220px) {
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .app { grid-template-columns: 1fr; }
+      .rail { display: none; }
+      .content { padding-bottom: 92px; }
+      .mobile-nav { display: grid; }
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; padding: 0; padding-bottom: 84px; }
+      .rail { display: none; }
+      .mobile-nav { display: grid; }
+      .topbar { position: static; }
+      .grid-2, .grid-3, .grid-4, .form-row { grid-template-columns: 1fr; }
+      .status-grid { grid-template-columns: 1fr; }
+      .theme-preview { grid-template-columns: 1fr; }
+      .wallet-sub { max-width: 100%; }
+      .table-wrap table { min-width: 700px; }
+      .site-title { max-width: 160px; }
+      .content { padding: 12px 14px 100px; }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="app">
+    <aside class="rail">
+      <div class="brand">
+        <h1>Solana Agent Wallet</h1>
+        <p>Autonomous wallet with user-first protection</p>
+      </div>
+
+      <div class="nav" id="nav-rail">
+        <button class="nav-btn active" data-view="home">Wallet Home <span class="tag">Primary</span></button>
+        <button class="nav-btn" data-view="activity">Activity <span class="tag" id="nav-activity-count">0</span></button>
+        <button class="nav-btn" data-view="safety">Safety Center <span class="tag" id="nav-safety-count">0</span></button>
+        <button class="nav-btn" data-view="sessions">Session Authority <span class="tag" id="nav-session-count">0</span></button>
+        <button class="nav-btn" data-view="automation">Automation <span class="tag" id="nav-rule-count">0</span></button>
+        <button class="nav-btn" data-view="settings">Settings</button>
+      </div>
+
+      <div class="rail-foot">
+        <span class="chip"><span class="dot" id="rail-live-dot" style="background: var(--ok);"></span>Live Runtime</span>
+        <span class="chip mono" id="rail-network">network: --</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar wallet-topbar">
+        <div class="site-pill">
+          <button class="top-icon-btn" onclick="switchView('settings')" title="Settings">☰</button>
+          <div>
+            <p class="site-title mono">solana-agent-wallet.app</p>
+            <p class="site-sub" id="wallet-status">Ready</p>
+          </div>
+        </div>
+        <div class="topbar-actions compact">
+          <button class="top-icon-btn" onclick="openTour()" title="Tour">?</button>
+          <button class="top-icon-btn" id="demo-toggle-btn" onclick="toggleDemoMode()" title="Demo">✦</button>
+          <button class="top-icon-btn" id="pause-btn" onclick="togglePause()" title="Pause">⏸</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view active" id="view-home">
+          <article class="wallet-hero">
+            <div class="wallet-address-row">
+              <div class="wallet-address-chip mono" id="wallet-address">Address loading...</div>
+              <a class="top-icon-btn" id="wallet-account-link" target="_blank" rel="noreferrer" title="Open on Solscan">↗</a>
+              <button class="top-icon-btn" onclick="copyText(q('wallet-address').textContent)" title="Copy address">⧉</button>
+              <button class="top-icon-btn" onclick="switchView('settings')" title="Settings">⚙</button>
+            </div>
+
+            <div class="home-balance" id="home-usd">$0.00</div>
+            <div class="muted" id="home-balance">0.0000 SOL</div>
+            <div class="pill-row">
+              <span class="tag info" id="home-price">SOL $0.00</span>
+              <span class="tag" id="home-network">devnet</span>
+              <span class="tag" id="home-agents">0 agents online</span>
+            </div>
+
+            <div class="wallet-actions-main">
+              <button class="round-action" onclick="openModal('receive')" title="Receive">↓</button>
+              <button class="round-action" onclick="openModal('send')" title="Send">↗</button>
+              <button class="round-action" onclick="switchView('safety')" title="Safety">🛡</button>
+              <button class="swap-main-btn" onclick="openModal('swap')">⇄ <span style="font-size:18px;">Swap</span></button>
+            </div>
+          </article>
+
+          <article class="premium-card">
+            <p class="premium-title" id="home-safety-title">All Systems Protected</p>
+            <p id="home-safety-sub" style="margin:8px 0 0; font-size:13px;">Your wallet actions run through simulation, firewall, scoped permissions, and policy checks.</p>
+            <div class="actions" style="margin-top:12px;">
+              <button class="btn" onclick="runDemoWalkthrough()">Run 2-min walkthrough</button>
+              <button class="btn brand" id="home-demo-btn" onclick="toggleDemoMode()">Enable demo mode</button>
+            </div>
+          </article>
+
+          <article class="card home-safety-card">
+            <div class="section-head">
+              <div>
+                <h2>Safety Runtime</h2>
+                <p id="home-safety-status-sub">Core protection gates are active before any action can move funds.</p>
+              </div>
+            </div>
+            <div class="status-grid">
+              <div class="status-item"><span class="k">Simulation</span><span class="v good" id="status-sim">Active</span></div>
+              <div class="status-item"><span class="k">Firewall</span><span class="v good" id="status-firewall">Active</span></div>
+              <div class="status-item"><span class="k">Session Scope</span><span class="v warn" id="status-session">Optional</span></div>
+              <div class="status-item"><span class="k">Emergency</span><span class="v good" id="status-control">Ready</span></div>
+            </div>
+            <div class="pill-row" style="margin-top:12px;">
+              <span class="tag">Blocked <strong id="kpi-blocked" style="margin-left:4px;">0</strong></span>
+              <span class="tag">Protected <strong id="kpi-protected" style="margin-left:4px;">0%</strong></span>
+              <span class="tag">Sessions <strong id="kpi-sessions" style="margin-left:4px;">0</strong></span>
+              <span class="tag">Alerts <strong id="kpi-alerts" style="margin-left:4px;">0</strong></span>
+            </div>
+            <div class="inline-note" id="home-demo-strip" style="display:none; margin-top:10px;">
+              Demo mode enabled. UI is optimized to showcase guardrails and decision transparency for judges.
+            </div>
+          </article>
+
+          <div class="home-tabs home-tabs-main">
+            <button class="active" onclick="event.target.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active')">Tokens</button>
+            <button onclick="switchView('activity')">History</button>
+            <button onclick="switchView('safety')">Safety</button>
+          </div>
+
+          <div class="wallet-list home-assets-list" id="home-assets"></div>
+
+          <article class="card home-outcome-card">
+            <div class="section-head">
+              <div>
+                <h2>Latest Action Outcome</h2>
+                <p>Guardrail outcomes and runtime details.</p>
+              </div>
+            </div>
+            <div id="home-latest-outcome" class="empty">No action yet. Send or swap to view a full protection summary.</div>
+          </article>
+
+          <article class="card home-activity-card">
+            <div class="section-head">
+              <div>
+                <h2>Recent Activity</h2>
+                <p>Beginner-friendly transaction feed with receipts.</p>
+              </div>
+              <button class="btn ghost" onclick="switchView('activity')">Open full history</button>
+            </div>
+            <div id="home-activity" class="list"></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-activity">
+          <div class="section-head">
+            <div>
+              <h2>Activity</h2>
+              <p>Clear records with status, protection mode, risk score, and receipt links.</p>
+            </div>
+            <div class="filter-row">
+              <button class="filter-btn active" data-filter="all" onclick="setActivityFilter('all')">All</button>
+              <button class="filter-btn" data-filter="confirmed" onclick="setActivityFilter('confirmed')">Confirmed</button>
+              <button class="filter-btn" data-filter="blocked" onclick="setActivityFilter('blocked')">Blocked</button>
+              <button class="filter-btn" data-filter="failed" onclick="setActivityFilter('failed')">Failed</button>
+            </div>
+          </div>
+
+          <article class="card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Protection</th>
+                    <th>Risk</th>
+                    <th>Session</th>
+                    <th>Receipt</th>
+                  </tr>
+                </thead>
+                <tbody id="activity-tbody"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="view" id="view-safety">
+          <div class="section-head">
+            <div>
+              <h2>Safety Center</h2>
+              <p>User controls for emergency pause, agent freeze, firewall insights, and alerts.</p>
+            </div>
+          </div>
+
+          <div class="grid-4">
+            <article class="metric"><span class="k">System Status</span><span class="v" id="safety-system">Active</span></article>
+            <article class="metric"><span class="k">Frozen Agents</span><span class="v" id="safety-frozen-count">0</span></article>
+            <article class="metric"><span class="k">Firewall Blocks</span><span class="v" id="safety-blocked-count">0</span></article>
+            <article class="metric"><span class="k">High Risk Tx</span><span class="v" id="safety-high-risk">0</span></article>
+          </div>
+
+          <div class="grid-2">
+            <article class="card stack">
+              <div class="section-head">
+                <div>
+                  <h2>Runtime Controls</h2>
+                  <p>Use pause when you need immediate protection.</p>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn warn" onclick="pauseSystem()">Pause all agents</button>
+                <button class="btn" onclick="resumeSystem()">Resume</button>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Agent</label>
+                  <select id="safety-agent-select"></select>
+                </div>
+                <div class="field">
+                  <label>Action</label>
+                  <div class="actions">
+                    <button class="btn" onclick="freezeSelectedAgent()">Freeze</button>
+                    <button class="btn" onclick="unfreezeSelectedAgent()">Unfreeze</button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div class="muted" style="font-size:12px; margin-bottom:8px;">Frozen list</div>
+                <div id="safety-frozen-list" class="list"></div>
+              </div>
+            </article>
+
+            <article class="card stack">
+              <div class="section-head">
+                <div>
+                  <h2>Alerts</h2>
+                  <p>Beginner-friendly warning feed with acknowledgement controls.</p>
+                </div>
+                <button class="btn ghost" onclick="refreshAll()">Refresh</button>
+              </div>
+              <div id="safety-alerts" class="list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-sessions">
+          <div class="section-head">
+            <div>
+              <h2>Session Authority</h2>
+              <p>Issue short-lived scopes for autonomous actions and revoke instantly when needed.</p>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <article class="card">
+              <div class="inline-note">For beginner mode, leave Session Public Key empty and use id-only sessions. Advanced mode supports signature-bound sessions.</div>
+              <form class="form" id="session-form" onsubmit="issueSession(event)">
+                <div class="form-row">
+                  <div class="field">
+                    <label>Scope Subject</label>
+                    <select id="session-scope"></select>
+                  </div>
+                  <div class="field">
+                    <label>TTL (minutes)</label>
+                    <input id="session-ttl" type="number" min="1" value="60" required />
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Max SOL per transaction (optional)</label>
+                  <input id="session-max" type="number" step="0.01" placeholder="0.25" />
+                </div>
+                <div class="field">
+                  <label>Allowed skills (comma-separated)</label>
+                  <input id="session-skills" type="text" placeholder="jupiter_swap, transfer_sol" />
+                </div>
+                <div class="field">
+                  <label>Allowed destinations (comma-separated)</label>
+                  <input id="session-destinations" type="text" placeholder="Wallet addresses" />
+                </div>
+                <div class="field">
+                  <label>Session Public Key (optional)</label>
+                  <input id="session-pubkey" class="mono" type="text" placeholder="Base58 Ed25519 public key" />
+                </div>
+                <button class="btn brand" type="submit">Issue session</button>
+              </form>
+            </article>
+
+            <article class="card stack">
+              <div class="section-head">
+                <div>
+                  <h2>Active Sessions</h2>
+                  <p>Live authority grants currently in force.</p>
+                </div>
+              </div>
+              <div id="sessions-list" class="list"></div>
+            </article>
+          </div>
+
+          <article class="card stack">
+            <div class="section-head">
+              <div>
+                <h2>Binding Message Builder</h2>
+                <p>Advanced: generate canonical message for signature-bound session execution.</p>
+              </div>
+            </div>
+            <form class="form" onsubmit="buildBinding(event)">
+              <div class="form-row">
+                <div class="field">
+                  <label>Session ID</label>
+                  <input id="binding-session-id" class="mono" placeholder="Session UUID" required />
+                </div>
+                <div class="field">
+                  <label>Skill name</label>
+                  <input id="binding-skill" placeholder="jupiter_swap" required />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Idempotency key</label>
+                  <input id="binding-idempotency" class="mono" placeholder="Unique idempotency key" required />
+                </div>
+                <div class="field">
+                  <label>Params JSON</label>
+                  <input id="binding-params" class="mono" placeholder='{"amountSol":0.1}' required />
+                </div>
+              </div>
+              <button class="btn" type="submit">Generate binding payload</button>
+            </form>
+            <pre id="binding-output" class="pre">No binding payload generated yet.</pre>
+          </article>
+        </section>
+
+        <section class="view" id="view-automation">
+          <div class="section-head">
+            <div>
+              <h2>Automation</h2>
+              <p>Set beginner-friendly IF/THEN rules while all safety checks remain active.</p>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <article class="card">
+              <form class="form" onsubmit="createRule(event)">
+                <div class="field">
+                  <label>Rule Name</label>
+                  <input id="rule-name" required placeholder="Protective swap when market drops" />
+                </div>
+                <div class="field">
+                  <label>Agent</label>
+                  <select id="rule-agent"></select>
+                </div>
+                <div class="form-row">
+                  <div class="field">
+                    <label>Condition Type</label>
+                    <select id="rule-condition-type" onchange="refreshRuleInputs()">
+                      <option value="price_above">price_above</option>
+                      <option value="price_below">price_below</option>
+                      <option value="balance_above">balance_above</option>
+                      <option value="balance_below">balance_below</option>
+                      <option value="signal_bullish">signal_bullish</option>
+                      <option value="signal_bearish">signal_bearish</option>
+                      <option value="signal_neutral">signal_neutral</option>
+                      <option value="always">always</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Condition Value</label>
+                    <input id="rule-condition-value" placeholder="140" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="field">
+                    <label>Action Type</label>
+                    <select id="rule-action-type">
+                      <option value="stake">stake</option>
+                      <option value="swap_sol_usdc">swap_sol_usdc</option>
+                      <option value="swap_usdc_sol">swap_usdc_sol</option>
+                      <option value="alert">alert</option>
+                      <option value="log">log</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Action Value</label>
+                    <input id="rule-action-value" placeholder="0.01" />
+                  </div>
+                </div>
+                <button class="btn brand" type="submit">Create rule</button>
+              </form>
+            </article>
+
+            <article class="card stack">
+              <div class="section-head">
+                <div>
+                  <h2>Rules</h2>
+                  <p id="rules-summary">No rules loaded.</p>
+                </div>
+              </div>
+              <div id="rules-list" class="list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <div class="section-head">
+            <div>
+              <h2>Settings</h2>
+              <p>Advanced safety and MEV profile configuration, still kept user-readable.</p>
+            </div>
+            <button class="btn brand" onclick="savePolicy()">Save settings</button>
+          </div>
+
+          <article class="card stack">
+            <div class="setting-groups">
+              <div class="setting-group">
+                <button class="setting-row" onclick="switchView('sessions')">
+                  <div class="setting-inline">
+                    <span class="setting-icon">◈</span>
+                    <div class="left">
+                      <div class="title">Manage Wallet Sessions</div>
+                      <div class="desc">Issue, scope, or revoke agent sessions.</div>
+                    </div>
+                  </div>
+                  <span class="tag">›</span>
+                </button>
+                <button class="setting-row" onclick="switchView('safety')">
+                  <div class="setting-inline">
+                    <span class="setting-icon">🛡</span>
+                    <div class="left">
+                      <div class="title">Security Center</div>
+                      <div class="desc">Emergency pause, freeze controls, and alerts.</div>
+                    </div>
+                  </div>
+                  <span class="tag">›</span>
+                </button>
+                <button class="setting-row" onclick="switchView('activity')">
+                  <div class="setting-inline">
+                    <span class="setting-icon">≡</span>
+                    <div class="left">
+                      <div class="title">Transaction History</div>
+                      <div class="desc">Receipts with simulation and firewall context.</div>
+                    </div>
+                  </div>
+                  <span class="tag">›</span>
+                </button>
+                <button class="setting-row" onclick="switchView('automation')">
+                  <div class="setting-inline">
+                    <span class="setting-icon">⚡</span>
+                    <div class="left">
+                      <div class="title">Automation Rules</div>
+                      <div class="desc">Configure autopilot safely with policy checks.</div>
+                    </div>
+                  </div>
+                  <span class="tag">›</span>
+                </button>
+              </div>
+            </div>
+            <div class="actions" style="margin-top:6px;">
+              <button class="swap-main-btn" style="width:100%; height:54px;" onclick="pauseSystem()">🔒 Lock Wallet Runtime</button>
+            </div>
+          </article>
+
+          <article class="card stack">
+            <div class="section-head">
+              <div>
+                <h2>Appearance</h2>
+                <p>Choose your wallet look and keep it synced across visits.</p>
+              </div>
+            </div>
+
+            <div class="setting-groups">
+              <div class="setting-group">
+                <div class="setting-row">
+                  <div class="setting-inline">
+                    <span class="setting-icon">UI</span>
+                    <div class="left">
+                      <div class="title">Theme Mode</div>
+                      <div class="desc">Switch between Dark, Light, or Auto (follows device).</div>
+                    </div>
+                  </div>
+                  <select id="ui-theme-select" onchange="setThemePreference(this.value)">
+                    <option value="auto">Auto</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                  </select>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-inline">
+                    <span class="setting-icon">◎</span>
+                    <div class="left">
+                      <div class="title">Current Active Theme</div>
+                      <div class="desc">Applied mode: <span id="ui-theme-current">dark</span> · Source: <span id="ui-theme-source">manual</span></div>
+                    </div>
+                  </div>
+                  <button class="btn ghost" onclick="cycleTheme()">Cycle</button>
+                </div>
+              </div>
+
+              <div class="theme-preview">
+                <div class="theme-chip dark">
+                  <span>Dark</span>
+                  <div class="swatches"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                </div>
+                <div class="theme-chip light">
+                  <span>Light</span>
+                  <div class="swatches"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                </div>
+                <div class="theme-chip auto">
+                  <span>Auto</span>
+                  <div class="swatches"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="theme-meta" id="theme-meta">Theme preference is saved locally for this browser.</div>
+          </article>
+
+          <div class="grid-2">
+            <article class="card stack">
+              <div class="field"><label>Max SOL per transaction</label><input id="pol-maxPerTxSol" type="number" step="0.01" /></div>
+              <div class="field"><label>Daily SOL limit</label><input id="pol-dailyLimitSol" type="number" step="0.1" /></div>
+              <div class="field"><label>Reserve SOL floor</label><input id="pol-reserveSol" type="number" step="0.01" /></div>
+              <div class="field"><label>Cooldown seconds</label><input id="pol-cooldownSeconds" type="number" step="1" /></div>
+              <div class="field"><label>Velocity auto-freeze SOL/min</label><input id="pol-velocityFreezeSol" type="number" step="0.01" /></div>
+              <div class="field"><label>Approval threshold SOL</label><input id="pol-approvalThresholdSol" type="number" step="0.01" /></div>
+
+              <div class="field"><label><input id="pol-requireSessionForFunds" type="checkbox" /> Require active session for fund actions</label></div>
+              <div class="field"><label><input id="pol-enforceSessionBoundProof" type="checkbox" /> Enforce bound signature when session pubkey is set</label></div>
+
+              <div class="field"><label>Allowed programs (one per line)</label><textarea id="pol-allowedPrograms"></textarea></div>
+              <div class="field"><label>Allowed destinations (one per line)</label><textarea id="pol-allowedDestinations"></textarea></div>
+            </article>
+
+            <article class="card stack">
+              <div class="field">
+                <label>Default MEV protection mode</label>
+                <select id="pol-mev-default-mode">
+                  <option value="auto">auto</option>
+                  <option value="protected_rpc">protected_rpc</option>
+                  <option value="standard_rpc">standard_rpc</option>
+                </select>
+              </div>
+              <div class="field"><label>Default priority multiplier</label><input id="pol-mev-priority-multiplier" type="number" step="0.05" /></div>
+              <div class="field"><label>Role MEV profiles (JSON)</label><textarea id="pol-role-mev-profiles"></textarea></div>
+              <div class="field"><label>Agent MEV profiles (JSON)</label><textarea id="pol-agent-mev-profiles"></textarea></div>
+              <div class="field"><label>Agent skill scopes (JSON)</label><textarea id="pol-agentScopes"></textarea></div>
+              <div class="field"><label>Live policy snapshot</label><pre id="policy-snapshot" class="pre">{}</pre></div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" id="mobile-nav">
+    <button data-view="home" class="active" onclick="switchView('home')">Home</button>
+    <button data-view="activity" onclick="switchView('activity')">Activity</button>
+    <button data-view="safety" onclick="switchView('safety')">Safety</button>
+    <button data-view="sessions" onclick="switchView('sessions')">Sessions</button>
+    <button data-view="automation" onclick="switchView('automation')">Rules</button>
+    <button data-view="settings" onclick="switchView('settings')">Settings</button>
+  </nav>
+
+  <div class="modal" id="modal-send">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h3>Send SOL</h3>
+          <p>Simple send flow with full safety checks under the hood.</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('send')">×</button>
+      </div>
+      <form class="form" onsubmit="submitSend(event)">
+        <div class="field"><label>Recipient address</label><input id="send-to" class="mono" required /></div>
+        <div class="field"><label>Amount SOL</label><input id="send-amount" type="number" step="0.0001" required /></div>
+        <div class="field"><label>Session (optional)</label><select id="send-session"></select></div>
+        <div class="field"><label>Session proof (optional)</label><input id="send-proof" class="mono" placeholder="base64 or base58 signature" /></div>
+        <div class="field"><label>Idempotency key</label><input id="send-idempotency" class="mono" /></div>
+        <div class="inline-note">Before signing: simulation + firewall + session + policy checks all run automatically.</div>
+        <button class="btn brand" type="submit">Review and send</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-receive">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h3>Receive SOL</h3>
+          <p>Share your treasury address.</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('receive')">×</button>
+      </div>
+      <div class="field"><label>Wallet address</label><input id="receive-address" class="mono" readonly /></div>
+      <div class="actions">
+        <button class="btn" onclick="copyText(document.getElementById('receive-address').value)">Copy address</button>
+      </div>
+      <div class="inline-note">If using devnet, make sure sender wallet is on devnet too.</div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-swap">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h3>Swap</h3>
+          <p>User-friendly swap that still applies MEV and fee intelligence.</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('swap')">×</button>
+      </div>
+      <form class="form" onsubmit="submitSwap(event)">
+        <div class="inline-note" id="swap-mode-note">
+          Checking network mode...
+        </div>
+        <div class="swap-shell">
+          <div class="swap-card">
+            <div class="swap-card-top">
+              <span>Pay with</span>
+              <div class="swap-quick">
+                <button type="button" onclick="setSwapPercent(25)">25%</button>
+                <button type="button" onclick="setSwapPercent(50)">50%</button>
+                <button type="button" onclick="setSwapPercent(100)">Max</button>
+              </div>
+            </div>
+            <div class="swap-token-row">
+              <select id="swap-from" onchange="previewSwapQuote()">
+                <option value="SOL">SOL</option>
+                <option value="USDC">USDC</option>
+              </select>
+              <input id="swap-amount" class="swap-amount" type="number" step="0.0001" placeholder="0" oninput="previewSwapQuote()" required />
+            </div>
+          </div>
+
+          <div class="swap-separator">
+            <button type="button" onclick="flipSwapPair()" title="Flip pair">⇅</button>
+          </div>
+
+          <div class="swap-card">
+            <div class="swap-card-top">
+              <span>Receive</span>
+              <span id="swap-quote-status">waiting input</span>
+            </div>
+            <div class="swap-token-row">
+              <select id="swap-to" onchange="previewSwapQuote()">
+                <option value="USDC">USDC</option>
+                <option value="SOL">SOL</option>
+              </select>
+              <input id="swap-estimate" class="swap-amount" type="text" value="0" readonly />
+            </div>
+            <div class="swap-preview" id="swap-quote-preview">
+              <span>Route preview</span>
+              <span class="value">Enter amount to fetch quote</span>
+            </div>
+          </div>
+
+          <details class="swap-advanced">
+            <summary>Advanced controls</summary>
+            <div class="field" style="margin-top:10px;"><label>Custom slippage bps (optional)</label><input id="swap-slippage" type="number" step="1" placeholder="Leave empty for dynamic" /></div>
+            <div class="field"><label>Session (optional)</label><select id="swap-session"></select></div>
+            <div class="field"><label>Session proof (optional)</label><input id="swap-proof" class="mono" placeholder="base64 or base58 signature" /></div>
+            <div class="field"><label>Idempotency key</label><input id="swap-idempotency" class="mono" /></div>
+          </details>
+        </div>
+        <button class="btn brand" type="submit">Find route and execute</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-result">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h3 id="result-title">Action result</h3>
+          <p>Protection and execution summary.</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('result')">×</button>
+      </div>
+      <div id="result-summary" class="list"></div>
+      <pre id="result-json" class="pre"></pre>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-tour">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h3>Wallet Quick Tour</h3>
+          <p>Beginner path to understand the wallet in under 90 seconds.</p>
+        </div>
+        <button class="modal-close" onclick="closeTour()">×</button>
+      </div>
+      <div class="onboarding">
+        <div class="count" id="tour-step-count">Step 1 of 5</div>
+        <h4 id="tour-title">Welcome</h4>
+        <p id="tour-body">This wallet is built for simple actions with automatic protection in the background.</p>
+      </div>
+      <div class="actions" style="justify-content:space-between;">
+        <div class="actions" style="margin-top:0;">
+          <button class="btn ghost" onclick="closeTour()">Skip</button>
+        </div>
+        <div class="actions" style="margin-top:0;">
+          <button class="btn" id="tour-prev-btn" onclick="prevTourStep()">Back</button>
+          <button class="btn brand" id="tour-next-btn" onclick="nextTourStep()">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const S = {
+      view: 'home',
+      activityFilter: 'all',
+      core: null,
+      policy: {},
+      txs: [],
+      alerts: [],
+      sessions: [],
+      rules: [],
+      paused: false,
+      frozenAgents: [],
+      sse: null,
+      demoMode: false,
+      tourStep: 0,
+      themePref: 'auto',
+      themeResolved: 'dark',
+      themeWatcherBound: false,
+      swapQuoteReqId: 0,
+    };
+
+    const TOUR_STEPS = [
+      {
+        view: 'home',
+        title: 'Wallet Home',
+        body: 'Start here for balance, quick send/receive/swap actions, and a plain-language safety summary.',
+      },
+      {
+        view: 'home',
+        title: 'Safety Runtime',
+        body: 'Each fund action goes through simulation, firewall checks, scope checks, and protected execution.',
+      },
+      {
+        view: 'safety',
+        title: 'Emergency Controls',
+        body: 'Pause the entire runtime instantly or freeze one agent if behavior looks risky.',
+      },
+      {
+        view: 'sessions',
+        title: 'Session Authority',
+        body: 'Issue short-lived permissions for autonomous actions and revoke them in one click.',
+      },
+      {
+        view: 'activity',
+        title: 'Action Receipts',
+        body: 'Every action is logged with status, risk score, protection mode, and a receipt link for audit.',
+      },
+    ];
+
+    function esc(v) {
+      return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function q(id) { return document.getElementById(id); }
+
+    function getSystemTheme() {
+      try {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+          ? 'light'
+          : 'dark';
+      } catch {
+        return 'dark';
+      }
+    }
+
+    function resolvedTheme(pref) {
+      if (pref === 'light' || pref === 'dark') return pref;
+      return getSystemTheme();
+    }
+
+    function syncThemeControls() {
+      const select = q('ui-theme-select');
+      if (select) select.value = S.themePref;
+      const current = q('ui-theme-current');
+      if (current) current.textContent = S.themeResolved;
+      const source = q('ui-theme-source');
+      if (source) source.textContent = S.themePref === 'auto' ? 'system' : 'manual';
+      const meta = q('theme-meta');
+      if (meta) {
+        meta.textContent = S.themePref === 'auto'
+          ? 'Theme follows your device appearance and updates automatically.'
+          : 'Theme preference is saved locally for this browser.';
+      }
+    }
+
+    function applyTheme(preference, opts = {}) {
+      const { persist = true, announce = false } = opts;
+      const pref = ['auto', 'dark', 'light'].includes(preference) ? preference : 'auto';
+      const resolved = resolvedTheme(pref);
+      S.themePref = pref;
+      S.themeResolved = resolved;
+      document.body.dataset.theme = resolved;
+      syncThemeControls();
+      if (persist) {
+        try { localStorage.setItem('wallet_theme_pref', pref); } catch {}
+      }
+      if (announce) {
+        showToast(`Theme switched to ${resolved}`, 'ok');
+      }
+    }
+
+    function setThemePreference(preference) {
+      applyTheme(preference, { persist: true, announce: true });
+    }
+
+    function cycleTheme() {
+      const order = ['auto', 'dark', 'light'];
+      const idx = order.indexOf(S.themePref);
+      const next = order[(idx + 1) % order.length];
+      applyTheme(next, { persist: true, announce: true });
+    }
+
+    function bindThemeWatcher() {
+      if (S.themeWatcherBound) return;
+      if (!window.matchMedia) return;
+      const mq = window.matchMedia('(prefers-color-scheme: light)');
+      const handle = () => {
+        if (S.themePref === 'auto') {
+          applyTheme('auto', { persist: false, announce: false });
+        }
+      };
+      if (mq.addEventListener) mq.addEventListener('change', handle);
+      else if (mq.addListener) mq.addListener(handle);
+      S.themeWatcherBound = true;
+    }
+
+    function setSwapPercent(percent) {
+      const from = q('swap-from').value;
+      if (from !== 'SOL') {
+        showToast('Quick percent uses SOL balance for now', 'info');
+        return;
+      }
+      const balance = Number(S.core?.sol || 0);
+      if (!Number.isFinite(balance) || balance <= 0) {
+        showToast('Balance unavailable', 'danger');
+        return;
+      }
+      const amount = (balance * (Number(percent) / 100));
+      q('swap-amount').value = amount > 0 ? amount.toFixed(4) : '';
+      previewSwapQuote();
+    }
+
+    function flipSwapPair() {
+      const fromEl = q('swap-from');
+      const toEl = q('swap-to');
+      const from = fromEl.value;
+      fromEl.value = toEl.value;
+      toEl.value = from;
+      previewSwapQuote();
+    }
+
+    async function previewSwapQuote() {
+      const inputMint = q('swap-from').value;
+      const outputMint = q('swap-to').value;
+      const amountSol = Number(q('swap-amount').value || 0);
+      const statusEl = q('swap-quote-status');
+      const estEl = q('swap-estimate');
+      const previewEl = q('swap-quote-preview');
+
+      if (!Number.isFinite(amountSol) || amountSol <= 0 || inputMint === outputMint) {
+        statusEl.textContent = 'waiting input';
+        estEl.value = '0';
+        previewEl.innerHTML = '<span>Route preview</span><span class="value">Enter amount to fetch quote</span>';
+        return;
+      }
+
+      const reqId = ++S.swapQuoteReqId;
+      statusEl.textContent = 'fetching quote...';
+
+      const out = await api('/api/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputMint,
+          outputMint,
+          amountSol,
+        }),
+      });
+
+      if (reqId !== S.swapQuoteReqId) return;
+
+      if (out?.ok && out?.available) {
+        const output = Number(out.outputAmount || 0);
+        estEl.value = Number.isFinite(output)
+          ? output.toLocaleString(undefined, { maximumFractionDigits: 6 })
+          : '0';
+        statusEl.textContent = 'quote ready';
+        const impact = Number(out.priceImpactPct || 0);
+        previewEl.innerHTML = `
+          <span>Route preview</span>
+          <span class="value">${esc(out.route || 'direct')} · impact ${impact.toFixed(3)}%</span>
+        `;
+        return;
+      }
+
+      estEl.value = '0';
+      if (String(out?.reason || '').includes('quote_api_unreachable')) {
+        statusEl.textContent = 'quote api unavailable';
+        previewEl.innerHTML = '<span>Route preview</span><span class="value">Quote service unreachable. Check internet/RPC.</span>';
+        return;
+      }
+      statusEl.textContent = 'no route';
+      previewEl.innerHTML = '<span>Route preview</span><span class="value">No route for this pair and amount.</span>';
+    }
+
+    async function api(path, opts) {
+      try {
+        const res = await fetch(path, opts);
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = { ok: false, error: text || 'Invalid response' }; }
+        if (!res.ok && data?.ok !== false) data.ok = false;
+        return data;
+      } catch (e) {
+        return { ok: false, error: e.message || String(e) };
+      }
+    }
+
+    function fmtSol(n) {
+      const v = Number(n || 0);
+      return `${v.toFixed(4)} SOL`;
+    }
+
+    function fmtUsd(n) {
+      const v = Number(n || 0);
+      return `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    }
+
+    function agoUnix(unixTs) {
+      const now = Date.now();
+      const ms = Number(unixTs || 0) * 1000;
+      const d = Math.max(0, now - ms);
+      if (d < 60000) return `${Math.floor(d / 1000)}s ago`;
+      if (d < 3600000) return `${Math.floor(d / 60000)}m ago`;
+      if (d < 86400000) return `${Math.floor(d / 3600000)}h ago`;
+      return new Date(ms).toLocaleDateString();
+    }
+
+    function shortAddr(a) {
+      if (!a) return '—';
+      return `${a.slice(0, 8)}...${a.slice(-6)}`;
+    }
+
+    function safeJson(v) {
+      if (!v) return null;
+      if (typeof v === 'object') return v;
+      try { return JSON.parse(v); } catch { return null; }
+    }
+
+    function toLines(arr) {
+      return Array.isArray(arr) ? arr.join('\n') : '';
+    }
+
+    function fromLines(text) {
+      return [...new Set(String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean))];
+    }
+
+    function fromCsv(text) {
+      return [...new Set(String(text || '').split(',').map(s => s.trim()).filter(Boolean))];
+    }
+
+    function statusTag(status) {
+      const s = String(status || '').toLowerCase();
+      if (s === 'confirmed') return '<span class="tag ok">confirmed</span>';
+      if (s === 'blocked') return '<span class="tag warn">blocked</span>';
+      if (s === 'simulated') return '<span class="tag info">simulated</span>';
+      if (s === 'analysis') return '<span class="tag info">analysis</span>';
+      if (s === 'submitted') return '<span class="tag info">submitted</span>';
+      if (s === 'failed') return '<span class="tag danger">failed</span>';
+      if (s === 'pending') return '<span class="tag warn">pending</span>';
+      return `<span class="tag">${esc(s || 'unknown')}</span>`;
+    }
+
+    function showToast(msg, tone = 'info') {
+      const el = q('toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.className = 'toast show';
+      el.style.borderColor = tone === 'danger'
+        ? 'rgba(255, 107, 138, 0.45)'
+        : tone === 'ok'
+          ? 'rgba(81, 220, 138, 0.45)'
+          : 'rgba(149, 172, 216, 0.35)';
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => { el.className = 'toast'; }, 2500);
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(String(text || ''))
+        .then(() => showToast('Copied to clipboard', 'ok'))
+        .catch(() => showToast('Copy failed', 'danger'));
+    }
+
+    function getDashboardSessions() {
+      return S.sessions.filter(s => s.scopeSubject === 'dashboard');
+    }
+
+    function txMeta(tx) {
+      const d = safeJson(tx.details) || {};
+      const fw = d.firewall || null;
+      const session = d.session || null;
+      const protection = d.protectionMode || d?.feeStrategy?.protectionMode || null;
+      const reasonText = String(d.reason || d.error || tx.error || '');
+      const blocked = tx.status === 'blocked'
+        || Boolean(tx.status === 'failed' && (reasonText.includes('blocked') || reasonText.includes('agent_frozen') || reasonText.includes('emergency_pause')))
+        || Boolean(d.blocked)
+        || Boolean(fw?.blocked);
+      return {
+        reason: d.reason || d.error || tx.error || null,
+        firewall: fw,
+        session,
+        sessionBinding: d.sessionBinding || null,
+        protection,
+        riskScore: fw?.riskScore ?? null,
+        riskLevel: fw?.riskLevel ?? null,
+        blocked,
+        simFailed: !!d.simFailed || String(d.reason || d.error || '').includes('simulation_failed'),
+        simUnits: d.simUnitsUsed ?? null,
+      };
+    }
+
+    function computeSafetyMetrics() {
+      const txs = S.txs || [];
+      let blocked = 0;
+      let highRisk = 0;
+      let protectedCount = 0;
+      let protectedEligible = 0;
+
+      txs.forEach(tx => {
+        const m = txMeta(tx);
+        if (m.blocked) blocked += 1;
+        if (Number(m.riskScore || 0) >= 60) highRisk += 1;
+        if (m.protection) {
+          protectedEligible += 1;
+          if (m.protection === 'protected_rpc') protectedCount += 1;
+        }
+      });
+
+      const protectedRate = protectedEligible ? Math.round((protectedCount / protectedEligible) * 100) : 0;
+      return { blocked, highRisk, protectedRate };
+    }
+
+    async function loadCore() {
+      const d = await api('/api/state');
+      if (!d.ok) throw new Error(d.error || 'Failed to load state');
+      S.core = d;
+      S.paused = !!d.paused;
+      S.frozenAgents = d.frozenAgents || [];
+    }
+
+    async function loadPolicy() {
+      const d = await api('/api/policy');
+      if (!d || d.ok === false) return;
+      S.policy = d;
+    }
+
+    async function loadTxs() {
+      const d = await api('/api/txs?limit=200');
+      if (!d.ok) return;
+      S.txs = d.txs || [];
+    }
+
+    async function loadAlerts() {
+      const d = await api('/api/alerts/unacked');
+      if (!d.ok) return;
+      S.alerts = d.alerts || [];
+    }
+
+    async function loadSessions() {
+      const d = await api('/api/sessions?active=1&limit=150');
+      if (!d.ok) return;
+      S.sessions = d.sessions || [];
+    }
+
+    async function loadRules() {
+      const d = await api('/api/rules');
+      if (!d.ok) return;
+      S.rules = d.rules || [];
+    }
+
+    async function refreshAll() {
+      try {
+        await Promise.all([loadCore(), loadPolicy(), loadTxs(), loadAlerts(), loadSessions(), loadRules()]);
+        renderAll();
+      } catch (e) {
+        showToast(e.message || 'Failed to refresh', 'danger');
+      }
+    }
+
+    function switchView(view) {
+      S.view = view;
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
+      document.querySelectorAll('#nav-rail .nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+      document.querySelectorAll('#mobile-nav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    }
+
+    function setActivityFilter(filter) {
+      S.activityFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+      renderActivity();
+    }
+
+    function renderTop() {
+      const c = S.core || {};
+      const address = c.treasury || '';
+      const sol = Number(c.sol || 0);
+      const price = Number(c.solPrice || 0);
+      const usd = sol * price;
+      const online = (c.agents || []).filter(a => a.isOnline).length;
+      const total = (c.agents || []).length;
+
+      q('wallet-address').textContent = address || 'Address unavailable';
+      q('wallet-status').textContent = S.paused
+        ? 'System paused'
+        : `Wallet ready · ${online}/${total} agents online`;
+      q('rail-network').textContent = `network: ${c.network || '--'}`;
+      q('rail-live-dot').style.background = S.paused ? 'var(--danger)' : 'var(--ok)';
+      if (address) {
+        const cluster = String(c.network || '').toLowerCase() === 'mainnet-beta' ? '' : '?cluster=devnet';
+        q('wallet-account-link').href = `https://solscan.io/account/${encodeURIComponent(address)}${cluster}`;
+      } else {
+        q('wallet-account-link').href = '#';
+      }
+
+      q('home-balance').textContent = fmtSol(sol);
+      q('home-usd').textContent = fmtUsd(usd);
+      q('home-price').textContent = `SOL ${fmtUsd(price)}`;
+      q('home-network').textContent = c.network || '--';
+      q('home-agents').textContent = `${online}/${total} agents online`;
+
+      q('receive-address').value = address;
+      q('pause-btn').textContent = S.paused ? '▶' : '⏸';
+      q('pause-btn').title = S.paused ? 'Resume runtime' : 'Pause runtime';
+      q('pause-btn').className = 'top-icon-btn';
+      q('pause-btn').style.borderColor = S.paused ? 'rgba(255, 107, 138, 0.5)' : 'var(--line)';
+      q('pause-btn').style.color = S.paused ? 'var(--danger)' : 'var(--text)';
+      q('demo-toggle-btn').textContent = S.demoMode ? '◆' : '✦';
+      q('demo-toggle-btn').title = S.demoMode ? 'Disable demo mode' : 'Enable demo mode';
+      q('demo-toggle-btn').className = 'top-icon-btn';
+      q('demo-toggle-btn').style.borderColor = S.demoMode ? 'rgba(77, 225, 188, 0.5)' : 'var(--line)';
+      q('demo-toggle-btn').style.color = S.demoMode ? 'var(--brand)' : 'var(--text)';
+      q('home-demo-btn').textContent = S.demoMode ? 'Disable demo mode' : 'Enable demo mode';
+      q('home-demo-btn').className = S.demoMode ? 'btn danger' : 'btn brand';
+      q('home-demo-strip').style.display = S.demoMode ? 'block' : 'none';
+
+      const safety = computeSafetyMetrics();
+      q('kpi-blocked').textContent = String(safety.blocked);
+      q('kpi-protected').textContent = `${safety.protectedRate}%`;
+      q('kpi-sessions').textContent = String(S.sessions.length);
+      q('kpi-alerts').textContent = String(S.alerts.length);
+
+      q('home-safety-title').textContent = S.paused
+        ? 'System paused by user'
+        : safety.blocked > 0
+          ? 'Threats blocked automatically'
+          : 'All systems protected';
+      q('home-safety-sub').textContent = S.paused
+        ? 'Resume when you are ready to continue autonomous execution.'
+        : 'Simulation, firewall, session authority, and policy checks are active for every fund action.';
+
+      q('home-safety-status-sub').textContent = S.demoMode
+        ? 'Demo mode is active: the interface emphasizes runtime guardrails and traceability.'
+        : 'Core protection gates are active before any action can move funds.';
+
+      const hasSessionPolicy = !!S.policy?.requireSessionForFunds;
+      q('status-sim').textContent = 'Active';
+      q('status-sim').className = 'v good';
+      q('status-firewall').textContent = 'Active';
+      q('status-firewall').className = 'v good';
+      q('status-session').textContent = hasSessionPolicy ? 'Required' : 'Optional';
+      q('status-session').className = `v ${hasSessionPolicy ? 'good' : 'warn'}`;
+      q('status-control').textContent = S.paused ? 'Paused' : 'Ready';
+      q('status-control').className = `v ${S.paused ? 'bad' : 'good'}`;
+
+      const isMainnet = (String(c.network || '').toLowerCase() === 'mainnet-beta');
+      if (S.paused) {
+        q('swap-mode-note').textContent = 'Runtime is paused. Swaps are blocked until you click Resume in Safety Center.';
+      } else if (!isMainnet) {
+        q('swap-mode-note').textContent = 'Devnet mode detected. Live Jupiter execution is disabled here; switch to mainnet for real swaps.';
+      } else {
+        q('swap-mode-note').textContent = 'Mainnet mode. Swap submits a real on-chain Jupiter transaction when checks pass.';
+      }
+
+      q('nav-activity-count').textContent = String(S.txs.length);
+      q('nav-safety-count').textContent = String(S.alerts.length);
+      q('nav-session-count').textContent = String(S.sessions.length);
+      q('nav-rule-count').textContent = String(S.rules.length);
+    }
+
+    function renderHome() {
+      const c = S.core || {};
+      const sol = Number(c.sol || 0);
+      const price = Number(c.solPrice || 0);
+      const safety = computeSafetyMetrics();
+      let usdcEst = 0;
+      (S.txs || []).forEach(tx => {
+        if (tx.skill !== 'jupiter_swap' || String(tx.status || '').toLowerCase() !== 'confirmed') return;
+        const d = safeJson(tx.details) || {};
+        const inMint = String(d.inputMint || '');
+        const outMint = String(d.outputMint || '');
+        if (outMint === 'USDC' || outMint.includes('4zMMC') || outMint.includes('EPjF')) {
+          usdcEst += Number(d.outputAmount || 0) / 1_000_000;
+        }
+        if (inMint === 'USDC' || inMint.includes('4zMMC') || inMint.includes('EPjF')) {
+          usdcEst -= Number(d.inputAmount || 0) / 1_000_000;
+        }
+      });
+      usdcEst = Math.max(0, usdcEst);
+
+      q('home-assets').innerHTML = `
+        <div class="asset-row">
+          <div class="left">
+            <span class="asset-icon">◎</span>
+            <div>
+              <div class="asset-name">Solana</div>
+              <div class="asset-sub">${esc(sol.toFixed(4))} SOL</div>
+            </div>
+          </div>
+          <div class="asset-val">
+            <div class="usd">${esc(fmtUsd(sol * price))}</div>
+            <div class="chg">Live treasury balance</div>
+          </div>
+        </div>
+        <div class="asset-row">
+          <div class="left">
+            <span class="asset-icon">$</span>
+            <div>
+              <div class="asset-name">USDC (estimated)</div>
+              <div class="asset-sub">${esc(usdcEst.toFixed(3))} USDC</div>
+            </div>
+          </div>
+          <div class="asset-val">
+            <div class="usd">${esc(fmtUsd(usdcEst))}</div>
+            <div class="chg">From confirmed swap history</div>
+          </div>
+        </div>
+        <div class="asset-row">
+          <div class="left">
+            <span class="asset-icon">🛡</span>
+            <div>
+              <div class="asset-name">Safety Runtime</div>
+              <div class="asset-sub">Sessions ${S.sessions.length} · Alerts ${S.alerts.length}</div>
+            </div>
+          </div>
+          <div class="asset-val">
+            <div class="usd">${safety.protectedRate}%</div>
+            <div class="chg">Protected execution rate</div>
+          </div>
+        </div>
+      `;
+
+      const recent = S.txs.slice(0, 5);
+      const el = q('home-activity');
+      if (!recent.length) {
+        el.innerHTML = `
+          <div class="empty">
+            No transactions yet. Start with a small test send or swap.
+            <div class="actions" style="justify-content:center;">
+              <button class="btn" onclick="openModal('send')">Send test amount</button>
+              <button class="btn brand" onclick="openModal('swap')">Try protected swap</button>
+            </div>
+          </div>
+        `;
+      } else {
+        el.innerHTML = recent.map(tx => {
+          const m = txMeta(tx);
+          const receipt = `/api/txs/${encodeURIComponent(tx.id)}/receipt.html`;
+          const amount = Number(tx.amount_sol || 0);
+          return `
+            <div class="item">
+              <div class="head">
+                <div class="name">${esc(tx.skill || 'action')} · ${amount > 0 ? `${amount.toFixed(4)} ${esc(tx.token || 'SOL')}` : 'analysis'}</div>
+                <div class="meta">${esc(agoUnix(tx.created_at))} · ${esc(tx.agent_id || 'dashboard')}</div>
+                <div class="pill-row">
+                  ${statusTag(tx.status)}
+                  ${m.protection ? `<span class="tag info">${esc(m.protection)}</span>` : ''}
+                  ${m.riskScore != null ? `<span class="tag ${Number(m.riskScore) >= 60 ? 'warn' : 'info'}">risk ${esc(m.riskScore)}</span>` : ''}
+                </div>
+              </div>
+              <a class="btn ghost" href="${receipt}" target="_blank" rel="noreferrer">Receipt</a>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const latest = S.txs[0];
+      const out = q('home-latest-outcome');
+      if (!latest) {
+        out.className = 'empty';
+        out.innerHTML = `
+          No action yet. Run any wallet action to view simulation, firewall, session, and reliability results here.
+          <div class="actions" style="justify-content:center;">
+            <button class="btn" onclick="openModal('send')">Start with Send</button>
+            <button class="btn" onclick="openTour()">Quick tour</button>
+          </div>
+        `;
+        return;
+      }
+      const m = txMeta(latest);
+      const chips = [
+        statusTag(latest.status),
+        m.simUnits != null ? `<span class="tag info">simulation ${esc(m.simUnits)} CU</span>` : '',
+        m.simFailed ? '<span class="tag danger">simulation failed</span>' : '',
+        m.protection ? `<span class="tag info">${esc(m.protection)}</span>` : '',
+        m.session ? `<span class="tag">session ${esc(shortAddr(m.session.id || ''))}</span>` : '',
+        m.sessionBinding ? `<span class="tag ${m.sessionBinding.verified ? 'ok' : 'danger'}">signature ${m.sessionBinding.verified ? 'verified' : 'invalid'}</span>` : '',
+      ].filter(Boolean).join('');
+
+      out.className = 'card';
+      out.style.padding = '0';
+      out.style.border = 'none';
+      out.style.background = 'transparent';
+      out.style.boxShadow = 'none';
+      out.innerHTML = `
+        <div class="list" style="margin-top:0;">
+          <div class="item">
+            <div class="head">
+              <div class="name">${esc(latest.skill || 'action')} · ${esc(agoUnix(latest.created_at))}</div>
+              <div class="meta">${esc(m.reason || 'No warning or error')}</div>
+              <div class="pill-row">${chips}</div>
+            </div>
+            <a class="btn ghost" href="/api/txs/${encodeURIComponent(latest.id)}/receipt.html" target="_blank" rel="noreferrer">Receipt</a>
+          </div>
+        </div>
+      `;
+    }
+
+    function getFilteredTxs() {
+      const rows = S.txs || [];
+      if (S.activityFilter === 'all') return rows;
+      if (S.activityFilter === 'blocked') {
+        return rows.filter(tx => String(tx.status || '').toLowerCase() === 'blocked' || txMeta(tx).blocked);
+      }
+      return rows.filter(tx => String(tx.status || '').toLowerCase() === S.activityFilter);
+    }
+
+    function renderActivity() {
+      const rows = getFilteredTxs();
+      const tb = q('activity-tbody');
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="8"><div class="empty">No matching activity. Try All filter or perform a new action.</div></td></tr>';
+        return;
+      }
+
+      tb.innerHTML = rows.map(tx => {
+        const m = txMeta(tx);
+        const amount = Number(tx.amount_sol || 0);
+        const sessionTxt = m.session?.id ? shortAddr(m.session.id) : '—';
+        const riskTxt = m.riskScore == null ? '—' : `${m.riskScore}`;
+        const riskTag = m.riskScore == null
+          ? '<span class="tag">n/a</span>'
+          : `<span class="tag ${Number(m.riskScore) >= 60 ? 'warn' : 'info'}">${esc(riskTxt)}</span>`;
+
+        const protection = m.protection
+          ? `<span class="tag info">${esc(m.protection)}</span>`
+          : '<span class="tag">n/a</span>';
+
+        return `
+          <tr>
+            <td>${esc(agoUnix(tx.created_at))}</td>
+            <td>
+              <div>${esc(tx.skill || 'action')}</div>
+              <div class="muted mono">${esc(shortAddr(tx.agent_id || 'dashboard'))}</div>
+            </td>
+            <td>${amount > 0 ? `${amount.toFixed(4)} ${esc(tx.token || 'SOL')}` : '—'}</td>
+            <td>${statusTag(tx.status)}</td>
+            <td>${protection}</td>
+            <td>${riskTag}</td>
+            <td>
+              <div>${esc(sessionTxt)}</div>
+              ${m.sessionBinding ? `<div class="muted">${m.sessionBinding.verified ? 'verified' : 'invalid'}</div>` : '<div class="muted">—</div>'}
+            </td>
+            <td><a class="btn ghost" href="/api/txs/${encodeURIComponent(tx.id)}/receipt.html" target="_blank" rel="noreferrer">Open</a></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderSafety() {
+      const metrics = computeSafetyMetrics();
+      q('safety-system').textContent = S.paused ? 'Paused' : 'Active';
+      q('safety-system').style.color = S.paused ? 'var(--danger)' : 'var(--ok)';
+      q('safety-frozen-count').textContent = String(S.frozenAgents.length);
+      q('safety-blocked-count').textContent = String(metrics.blocked);
+      q('safety-high-risk').textContent = String(metrics.highRisk);
+
+      const frozenEl = q('safety-frozen-list');
+      if (!S.frozenAgents.length) {
+        frozenEl.innerHTML = '<div class="empty">No frozen agents. Guardian auto-freeze remains armed for velocity breaches.</div>';
+      } else {
+        frozenEl.innerHTML = S.frozenAgents.map(id => {
+          const agent = (S.core?.agents || []).find(a => a.id === id);
+          return `<div class="item"><div class="head"><div class="name">${esc(agent?.name || id)}</div><div class="meta mono">${esc(id)}</div></div><button class="btn ghost" onclick="unfreezeAgent('${esc(id)}')">Unfreeze</button></div>`;
+        }).join('');
+      }
+
+      const alertEl = q('safety-alerts');
+      if (!S.alerts.length) {
+        alertEl.innerHTML = '<div class="empty">No unacknowledged alerts. Live monitoring is active and will surface new risks here.</div>';
+      } else {
+        alertEl.innerHTML = S.alerts.slice(0, 100).map(a => `
+          <div class="item">
+            <div class="head">
+              <div class="name">${esc(a.message || a.type || 'Alert')}</div>
+              <div class="meta">${esc(agoUnix(a.created_at))} · ${esc(a.severity || 'info')}</div>
+            </div>
+            <button class="btn ghost" onclick="ackAlert(${a.id})">Acknowledge</button>
+          </div>
+        `).join('');
+      }
+
+      renderAgentSelects();
+    }
+
+    function renderSessions() {
+      const list = q('sessions-list');
+      if (!S.sessions.length) {
+        list.innerHTML = `
+          <div class="empty">
+            No active sessions. Create a short-lived beginner session to allow safe autonomous actions.
+            <div class="actions" style="justify-content:center;">
+              <button class="btn brand" onclick="createBeginnerSession()">Create beginner session</button>
+            </div>
+          </div>
+        `;
+      } else {
+        list.innerHTML = S.sessions.map(s => {
+          const expMs = Number(s.expiresAt || 0) * 1000;
+          const leftMin = Math.max(0, Math.round((expMs - Date.now()) / 60000));
+          const keyMode = s.sessionPubkey ? `bound key ${shortAddr(s.sessionPubkey)}` : 'id-only';
+          return `
+            <div class="item">
+              <div class="head">
+                <div class="name">${esc(s.scopeSubject)} · ${esc(shortAddr(s.id))}</div>
+                <div class="meta">expires in ${leftMin}m · ${esc(keyMode)}</div>
+                <div class="meta">skills: ${esc((s.allowedSkills || []).join(', ') || 'all')}</div>
+              </div>
+              <button class="btn danger" onclick="revokeSession('${esc(s.id)}')">Revoke</button>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const sessionOpts = [`<option value="">No session</option>`].concat(
+        getDashboardSessions().map(s => `<option value="${esc(s.id)}">${esc(shortAddr(s.id))} · ${esc((s.allowedSkills || []).join(', ') || 'all')}</option>`)
+      ).join('');
+      q('send-session').innerHTML = sessionOpts;
+      q('swap-session').innerHTML = sessionOpts;
+    }
+
+    function renderAutomation() {
+      const summary = q('rules-summary');
+      const active = S.rules.filter(r => r.enabled).length;
+      const fires = S.rules.reduce((sum, r) => sum + Number(r.fire_count || 0), 0);
+      summary.textContent = `${S.rules.length} rules · ${active} active · ${fires} total fires`;
+
+      const list = q('rules-list');
+      if (!S.rules.length) {
+        list.innerHTML = '<div class="empty">No rules yet. Create one simple IF/THEN rule to automate your first protected action.</div>';
+      } else {
+        list.innerHTML = S.rules.map(r => `
+          <div class="item">
+            <div class="head">
+              <div class="name">${esc(r.name)}</div>
+              <div class="meta">IF ${esc(r.condition)} THEN ${esc(r.action)}</div>
+              <div class="meta">fires: ${Number(r.fire_count || 0)} · ${r.enabled ? 'enabled' : 'disabled'}</div>
+            </div>
+            <div class="actions">
+              <button class="btn" onclick="toggleRule('${esc(r.id)}', ${r.enabled ? 'false' : 'true'})">${r.enabled ? 'Disable' : 'Enable'}</button>
+              <button class="btn danger" onclick="deleteRule('${esc(r.id)}')">Delete</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      renderAgentSelects();
+      refreshRuleInputs();
+    }
+
+    function renderSettings() {
+      const p = S.policy || {};
+      q('pol-maxPerTxSol').value = p.maxPerTxSol ?? '';
+      q('pol-dailyLimitSol').value = p.dailyLimitSol ?? '';
+      q('pol-reserveSol').value = p.reserveSol ?? '';
+      q('pol-cooldownSeconds').value = p.cooldownSeconds ?? '';
+      q('pol-velocityFreezeSol').value = p.velocityFreezeSol ?? '';
+      q('pol-approvalThresholdSol').value = p.approvalThresholdSol ?? '';
+      q('pol-requireSessionForFunds').checked = !!p.requireSessionForFunds;
+      q('pol-enforceSessionBoundProof').checked = p.enforceSessionBoundProof !== false;
+      q('pol-allowedPrograms').value = toLines(p.allowedPrograms);
+      q('pol-allowedDestinations').value = toLines(p.allowedDestinations);
+      q('pol-mev-default-mode').value = p?.mevProfileDefault?.protectionMode || 'auto';
+      q('pol-mev-priority-multiplier').value = p?.mevProfileDefault?.priorityMultiplier ?? '';
+      q('pol-role-mev-profiles').value = p.roleMevProfiles ? JSON.stringify(p.roleMevProfiles, null, 2) : '';
+      q('pol-agent-mev-profiles').value = p.agentMevProfiles ? JSON.stringify(p.agentMevProfiles, null, 2) : '';
+      q('pol-agentScopes').value = p.agentScopes ? JSON.stringify(p.agentScopes, null, 2) : '';
+      q('policy-snapshot').textContent = JSON.stringify(p, null, 2);
+      syncThemeControls();
+    }
+
+    function renderAgentSelects() {
+      const agents = S.core?.agents || [];
+      const options = agents.map(a => `<option value="${esc(a.id)}">${esc(a.name)} (${esc(a.role)})</option>`).join('');
+      q('safety-agent-select').innerHTML = options || '<option value="">No agents</option>';
+      q('rule-agent').innerHTML = options || '<option value="">No agents</option>';
+
+      const scopeOpts = ['dashboard'].concat(agents.map(a => a.name)).map(name =>
+        `<option value="${esc(name)}">${esc(name)}</option>`
+      ).join('');
+      q('session-scope').innerHTML = scopeOpts;
+    }
+
+    function renderAll() {
+      renderTop();
+      renderHome();
+      renderActivity();
+      renderSafety();
+      renderSessions();
+      renderAutomation();
+      renderSettings();
+    }
+
+    function setDemoMode(enabled) {
+      S.demoMode = !!enabled;
+      try {
+        localStorage.setItem('wallet_demo_mode', S.demoMode ? '1' : '0');
+      } catch {}
+      renderTop();
+      if (S.demoMode) {
+        showToast('Demo mode enabled', 'ok');
+      } else {
+        showToast('Demo mode disabled', 'info');
+      }
+    }
+
+    function toggleDemoMode() {
+      setDemoMode(!S.demoMode);
+    }
+
+    function runDemoWalkthrough() {
+      setDemoMode(true);
+      const order = ['home', 'safety', 'sessions', 'activity', 'home'];
+      const labels = [
+        '1/5 Wallet Home',
+        '2/5 Safety controls',
+        '3/5 Session scope',
+        '4/5 Receipts and audit',
+        '5/5 Back to home',
+      ];
+
+      order.forEach((view, idx) => {
+        setTimeout(() => {
+          switchView(view);
+          showToast(`Walkthrough ${labels[idx]}`, 'ok');
+        }, idx * 3000);
+      });
+    }
+
+    function openTour() {
+      S.tourStep = 0;
+      renderTourStep();
+      openModal('tour');
+    }
+
+    function closeTour() {
+      closeModal('tour');
+      try {
+        localStorage.setItem('wallet_tour_seen', '1');
+      } catch {}
+    }
+
+    function renderTourStep() {
+      const step = TOUR_STEPS[S.tourStep] || TOUR_STEPS[0];
+      q('tour-step-count').textContent = `Step ${S.tourStep + 1} of ${TOUR_STEPS.length}`;
+      q('tour-title').textContent = step.title;
+      q('tour-body').textContent = step.body;
+      q('tour-prev-btn').disabled = S.tourStep === 0;
+      q('tour-next-btn').textContent = S.tourStep >= TOUR_STEPS.length - 1 ? 'Finish' : 'Next';
+      switchView(step.view);
+    }
+
+    function nextTourStep() {
+      if (S.tourStep >= TOUR_STEPS.length - 1) {
+        closeTour();
+        showToast('Tour completed', 'ok');
+        return;
+      }
+      S.tourStep += 1;
+      renderTourStep();
+    }
+
+    function prevTourStep() {
+      if (S.tourStep <= 0) return;
+      S.tourStep -= 1;
+      renderTourStep();
+    }
+
+    function openModal(name) {
+      if (name === 'send') {
+        q('send-idempotency').value = (crypto.randomUUID ? crypto.randomUUID() : `send-${Date.now()}`);
+      }
+      if (name === 'swap') {
+        q('swap-idempotency').value = (crypto.randomUUID ? crypto.randomUUID() : `swap-${Date.now()}`);
+        previewSwapQuote();
+      }
+      q(`modal-${name}`).classList.add('open');
+    }
+
+    function closeModal(name) {
+      q(`modal-${name}`).classList.remove('open');
+    }
+
+    function parseActionError(result) {
+      const reason = result?.reason || result?.error || 'Action failed';
+      if (String(reason).includes('emergency_pause')) {
+        return 'Blocked: runtime is paused. Resume in Safety Center first.';
+      }
+      if (String(reason).includes('no_route')) {
+        return 'No swap route found for this pair/amount right now.';
+      }
+      if (String(reason).includes('quote_api_unreachable')) {
+        return 'Quote service is temporarily unreachable. Try again in a few seconds.';
+      }
+      if (String(reason).includes('swap_api_unreachable')) {
+        return 'Swap transaction service is temporarily unreachable. Try again in a few seconds.';
+      }
+      if (String(reason).includes('unsupported_network_for_live_jupiter_swap')) {
+        return 'Live Jupiter swap is mainnet-only in this build.';
+      }
+      return reason;
+    }
+
+    function showResult(title, payload) {
+      q('result-title').textContent = title;
+      q('result-json').textContent = JSON.stringify(payload, null, 2);
+
+      const r = payload?.result || payload;
+      const fw = r?.firewall;
+      const reliability = r?.reliability;
+      const reason = r?.reason || r?.error || null;
+      const isBlocked = r?.ok === false && !!r?.blocked;
+      const isNoRoute = r?.ok === true && r?.swapped === false;
+      const isSuccess = r?.ok === true && (r?.swapped === true || !!r?.sig);
+
+      let statusText = 'Execution failed';
+      let statusTagHtml = '<span class="tag danger">failed</span>';
+      if (isBlocked) {
+        statusText = 'Blocked by safety policy';
+        statusTagHtml = '<span class="tag warn">blocked</span>';
+      } else if (isNoRoute) {
+        statusText = 'No route found (nothing submitted)';
+        statusTagHtml = '<span class="tag warn">no route</span>';
+      } else if (isSuccess) {
+        statusText = 'Executed successfully';
+        statusTagHtml = '<span class="tag ok">success</span>';
+      }
+
+      const txLine = r?.sig
+        ? `<a class="btn ghost" href="${esc(r.explorer || '#')}" target="_blank" rel="noreferrer">${esc(shortAddr(r.sig))}</a>`
+        : '<span class="tag">not submitted</span>';
+
+      const summary = [
+        `<div class="item"><div class="head"><div class="name">Status</div><div class="meta">${esc(statusText)}</div></div>${statusTagHtml}</div>`,
+        `<div class="item"><div class="head"><div class="name">On-chain transaction</div><div class="meta">${r?.sig ? 'Submitted to Solana' : 'No transaction was sent'}</div></div>${txLine}</div>`,
+        `<div class="item"><div class="head"><div class="name">Simulation</div><div class="meta">${r?.simUnitsUsed != null ? `${r.simUnitsUsed} compute units` : (r?.simFailed ? 'simulation failed' : 'not reported')}</div></div>${r?.simFailed ? '<span class="tag danger">failed</span>' : '<span class="tag info">checked</span>'}</div>`,
+        `<div class="item"><div class="head"><div class="name">Firewall</div><div class="meta">${fw ? `risk ${fw.riskScore ?? 'n/a'} · ${fw.riskLevel || 'n/a'}` : 'not evaluated'}</div></div>${fw?.blocked ? '<span class="tag danger">blocked</span>' : '<span class="tag ok">allow</span>'}</div>`,
+        `<div class="item"><div class="head"><div class="name">Session</div><div class="meta">${r?.session?.id ? shortAddr(r.session.id) : 'not used'}</div></div>${r?.sessionBinding ? `<span class="tag ${r.sessionBinding.verified ? 'ok' : 'danger'}">${r.sessionBinding.verified ? 'signature verified' : 'signature invalid'}</span>` : '<span class="tag">none</span>'}</div>`,
+        `<div class="item"><div class="head"><div class="name">Execution protection</div><div class="meta">${esc(r?.protectionMode || r?.feeStrategy?.protectionMode || 'n/a')}</div></div>${r?.feeStrategy?.priorityFeeLamports ? `<span class="tag info">fee ${esc(r.feeStrategy.priorityFeeLamports)}</span>` : '<span class="tag">n/a</span>'}</div>`,
+        `<div class="item"><div class="head"><div class="name">Reliability</div><div class="meta">${reliability ? `attempts ${reliability.attempts}` : 'n/a'}</div></div>${reliability?.retried ? '<span class="tag warn">retried</span>' : '<span class="tag">single pass</span>'}</div>`,
+        `<div class="item"><div class="head"><div class="name">Reason</div><div class="meta">${esc(reason || 'No warning or error')}</div></div>${reason ? '<span class="tag info">detail</span>' : '<span class="tag">none</span>'}</div>`,
+      ];
+
+      q('result-summary').innerHTML = summary.join('');
+      openModal('result');
+    }
+
+    async function submitSend(ev) {
+      ev.preventDefault();
+      const toAddress = q('send-to').value.trim();
+      const amountSol = Number(q('send-amount').value);
+      const sessionId = q('send-session').value || null;
+      const sessionProof = q('send-proof').value.trim() || null;
+      const idempotencyKey = q('send-idempotency').value.trim() || (crypto.randomUUID ? crypto.randomUUID() : `send-${Date.now()}`);
+
+      if (S.paused) {
+        const out = { ok: false, blocked: true, reason: 'emergency_pause: runtime paused by user' };
+        showToast('Runtime is paused. Resume first.', 'danger');
+        closeModal('send');
+        showResult('Send SOL result', out);
+        return;
+      }
+
+      if (!toAddress || !Number.isFinite(amountSol) || amountSol <= 0) {
+        showToast('Enter a valid recipient and amount', 'danger');
+        return;
+      }
+
+      const payload = {
+        skill: 'transfer_sol',
+        params: { toAddress, amountSol },
+        agentId: 'dashboard',
+        sessionId,
+        sessionProof,
+        idempotencyKey,
+      };
+
+      const out = await api('/api/skill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (out.ok) {
+        showToast('Send request processed', 'ok');
+      } else if (out.blocked) {
+        showToast(parseActionError(out), 'danger');
+      } else {
+        showToast(parseActionError(out), 'danger');
+      }
+      closeModal('send');
+      showResult('Send SOL result', out);
+      await refreshAll();
+    }
+
+    async function submitSwap(ev) {
+      ev.preventDefault();
+      const inputMint = q('swap-from').value;
+      const outputMint = q('swap-to').value;
+      const amountSol = Number(q('swap-amount').value);
+      const slippageRaw = q('swap-slippage').value.trim();
+      const slippageBps = slippageRaw ? Number(slippageRaw) : undefined;
+      const sessionId = q('swap-session').value || null;
+      const sessionProof = q('swap-proof').value.trim() || null;
+      const idempotencyKey = q('swap-idempotency').value.trim() || (crypto.randomUUID ? crypto.randomUUID() : `swap-${Date.now()}`);
+
+      if (S.paused) {
+        const out = { ok: false, blocked: true, reason: 'emergency_pause: runtime paused by user' };
+        showToast('Runtime is paused. Resume first.', 'danger');
+        closeModal('swap');
+        showResult('Swap result', out);
+        return;
+      }
+
+      if (!Number.isFinite(amountSol) || amountSol <= 0) {
+        showToast('Enter a valid amount', 'danger');
+        return;
+      }
+      if (inputMint === outputMint) {
+        showToast('Select different tokens', 'danger');
+        return;
+      }
+
+      const params = { inputMint, outputMint, amountSol };
+      if (Number.isFinite(slippageBps)) params.slippageBps = slippageBps;
+
+      const payload = {
+        skill: 'jupiter_swap',
+        params,
+        agentId: 'dashboard',
+        sessionId,
+        sessionProof,
+        idempotencyKey,
+      };
+
+      const out = await api('/api/skill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (out.ok && out.swapped === true) {
+        showToast('Swap submitted', 'ok');
+      } else if (out.ok && out.swapped === false) {
+        showToast('No route available on current network', 'danger');
+      } else if (out.blocked) {
+        showToast(parseActionError(out), 'danger');
+      } else {
+        showToast(parseActionError(out), 'danger');
+      }
+      closeModal('swap');
+      showResult('Swap result', out);
+      await refreshAll();
+    }
+
+    async function togglePause() {
+      if (S.paused) return resumeSystem();
+      return pauseSystem();
+    }
+
+    async function pauseSystem() {
+      const d = await api('/api/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'manual wallet pause' }),
+      });
+      if (!d.ok) return showToast(d.error || 'Pause failed', 'danger');
+      showToast('Runtime paused', 'ok');
+      await refreshAll();
+    }
+
+    async function resumeSystem() {
+      const d = await api('/api/resume', { method: 'POST' });
+      if (!d.ok) return showToast(d.error || 'Resume failed', 'danger');
+      showToast('Runtime resumed', 'ok');
+      await refreshAll();
+    }
+
+    async function freezeSelectedAgent() {
+      const id = q('safety-agent-select').value;
+      if (!id) return;
+      await freezeAgent(id);
+    }
+
+    async function unfreezeSelectedAgent() {
+      const id = q('safety-agent-select').value;
+      if (!id) return;
+      await unfreezeAgent(id);
+    }
+
+    async function freezeAgent(id) {
+      const d = await api(`/api/freeze/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'manual freeze from wallet ui' }),
+      });
+      if (!d.ok) return showToast(d.error || 'Freeze failed', 'danger');
+      showToast('Agent frozen', 'ok');
+      await refreshAll();
+    }
+
+    async function unfreezeAgent(id) {
+      const d = await api(`/api/unfreeze/${encodeURIComponent(id)}`, { method: 'POST' });
+      if (!d.ok) return showToast(d.error || 'Unfreeze failed', 'danger');
+      showToast('Agent unfrozen', 'ok');
+      await refreshAll();
+    }
+
+    async function ackAlert(id) {
+      const d = await api(`/api/alerts/${id}/ack`, { method: 'POST' });
+      if (!d.ok) return showToast('Ack failed', 'danger');
+      await refreshAll();
+    }
+
+    async function issueSession(ev) {
+      ev.preventDefault();
+      const payload = {
+        scopeSubject: q('session-scope').value,
+        ttlSeconds: Math.max(60, Math.floor(Number(q('session-ttl').value || 60) * 60)),
+        maxPerTxSol: q('session-max').value.trim() ? Number(q('session-max').value) : null,
+        allowedSkills: fromCsv(q('session-skills').value),
+        allowedDestinations: fromCsv(q('session-destinations').value),
+        sessionPubkey: q('session-pubkey').value.trim() || null,
+      };
+
+      const d = await api('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!d.ok) {
+        showToast(d.error || 'Session issue failed', 'danger');
+        return;
+      }
+
+      showToast('Session issued', 'ok');
+      q('session-skills').value = '';
+      q('session-destinations').value = '';
+      q('session-pubkey').value = '';
+      q('session-max').value = '';
+      await refreshAll();
+    }
+
+    async function createBeginnerSession() {
+      const payload = {
+        scopeSubject: 'dashboard',
+        ttlSeconds: 1800,
+        maxPerTxSol: 0.1,
+        allowedSkills: ['transfer_sol', 'jupiter_swap'],
+        allowedDestinations: [],
+        sessionPubkey: null,
+      };
+
+      const d = await api('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!d.ok) {
+        showToast(d.error || 'Beginner session failed', 'danger');
+        return;
+      }
+
+      showToast('Beginner session issued (30 min)', 'ok');
+      await refreshAll();
+    }
+
+    async function revokeSession(id) {
+      const d = await api(`/api/sessions/${encodeURIComponent(id)}/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'manual revoke from wallet ui' }),
+      });
+      if (!d.ok) return showToast(d.error || 'Revoke failed', 'danger');
+      showToast('Session revoked', 'ok');
+      await refreshAll();
+    }
+
+    async function buildBinding(ev) {
+      ev.preventDefault();
+      const sessionId = q('binding-session-id').value.trim();
+      const skillName = q('binding-skill').value.trim();
+      const idempotencyKey = q('binding-idempotency').value.trim();
+      let params;
+      try { params = JSON.parse(q('binding-params').value); }
+      catch {
+        showToast('Invalid Params JSON', 'danger');
+        return;
+      }
+
+      const d = await api(`/api/sessions/${encodeURIComponent(sessionId)}/binding`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillName, idempotencyKey, params }),
+      });
+
+      if (!d.ok) {
+        q('binding-output').textContent = JSON.stringify(d, null, 2);
+        showToast(d.error || 'Binding build failed', 'danger');
+        return;
+      }
+      q('binding-output').textContent = JSON.stringify(d, null, 2);
+      showToast('Binding payload generated', 'ok');
+    }
+
+    function refreshRuleInputs() {
+      const t = q('rule-condition-type').value;
+      const needsValue = ['price_above', 'price_below', 'balance_above', 'balance_below'].includes(t);
+      q('rule-condition-value').disabled = !needsValue;
+      if (!needsValue) q('rule-condition-value').value = '';
+    }
+
+    async function createRule(ev) {
+      ev.preventDefault();
+      const name = q('rule-name').value.trim();
+      const agentId = q('rule-agent').value;
+      const condType = q('rule-condition-type').value;
+      const condValue = q('rule-condition-value').value.trim();
+      const actionType = q('rule-action-type').value;
+      const actionValue = q('rule-action-value').value.trim();
+
+      if (!name || !agentId) {
+        showToast('Rule name and agent are required', 'danger');
+        return;
+      }
+
+      const needsValue = ['price_above', 'price_below', 'balance_above', 'balance_below'].includes(condType);
+      const condition = needsValue ? `${condType}:${condValue}` : condType;
+      const action = actionValue ? `${actionType}:${actionValue}` : actionType;
+
+      const d = await api('/api/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId, name, condition, action }),
+      });
+
+      if (!d.ok) return showToast(d.error || 'Create rule failed', 'danger');
+      showToast('Rule created', 'ok');
+      q('rule-name').value = '';
+      q('rule-action-value').value = '';
+      await refreshAll();
+    }
+
+    async function toggleRule(id, enabled) {
+      const d = await api(`/api/rules/${encodeURIComponent(id)}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!d.ok) return showToast('Rule update failed', 'danger');
+      await refreshAll();
+    }
+
+    async function deleteRule(id) {
+      const d = await api(`/api/rules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!d.ok) return showToast('Delete failed', 'danger');
+      showToast('Rule deleted', 'ok');
+      await refreshAll();
+    }
+
+    async function savePolicy() {
+      let roleProfiles;
+      let agentProfiles;
+      let agentScopes;
+
+      try { roleProfiles = q('pol-role-mev-profiles').value.trim() ? JSON.parse(q('pol-role-mev-profiles').value) : {}; }
+      catch { return showToast('Role MEV profiles JSON is invalid', 'danger'); }
+      try { agentProfiles = q('pol-agent-mev-profiles').value.trim() ? JSON.parse(q('pol-agent-mev-profiles').value) : {}; }
+      catch { return showToast('Agent MEV profiles JSON is invalid', 'danger'); }
+      try { agentScopes = q('pol-agentScopes').value.trim() ? JSON.parse(q('pol-agentScopes').value) : {}; }
+      catch { return showToast('Agent scopes JSON is invalid', 'danger'); }
+
+      const body = {
+        maxPerTxSol: Number(q('pol-maxPerTxSol').value),
+        dailyLimitSol: Number(q('pol-dailyLimitSol').value),
+        reserveSol: Number(q('pol-reserveSol').value),
+        cooldownSeconds: Number(q('pol-cooldownSeconds').value),
+        velocityFreezeSol: Number(q('pol-velocityFreezeSol').value),
+        approvalThresholdSol: Number(q('pol-approvalThresholdSol').value),
+        requireSessionForFunds: !!q('pol-requireSessionForFunds').checked,
+        enforceSessionBoundProof: !!q('pol-enforceSessionBoundProof').checked,
+        allowedPrograms: fromLines(q('pol-allowedPrograms').value),
+        allowedDestinations: fromLines(q('pol-allowedDestinations').value),
+        mevProfileDefault: {
+          ...(S.policy?.mevProfileDefault || {}),
+          protectionMode: q('pol-mev-default-mode').value,
+          priorityMultiplier: Number(q('pol-mev-priority-multiplier').value || 1),
+        },
+        roleMevProfiles: roleProfiles,
+        agentMevProfiles: agentProfiles,
+        agentScopes,
+      };
+
+      Object.keys(body).forEach(k => {
+        if (typeof body[k] === 'number' && !Number.isFinite(body[k])) delete body[k];
+      });
+
+      const d = await api('/api/policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!d.ok) return showToast(d.error || 'Save failed', 'danger');
+      showToast('Settings saved', 'ok');
+      await refreshAll();
+    }
+
+    function connectStream() {
+      try {
+        if (S.sse) S.sse.close();
+        const es = new EventSource('/api/stream');
+        S.sse = es;
+
+        es.addEventListener('agent_result', () => refreshAll());
+        es.addEventListener('emergency_pause', () => refreshAll());
+        es.addEventListener('emergency_resume', () => refreshAll());
+        es.addEventListener('agent_frozen', () => refreshAll());
+        es.addEventListener('agent_unfrozen', () => refreshAll());
+
+        es.onerror = () => {
+          q('rail-live-dot').style.background = 'var(--warn)';
+        };
+        es.onopen = () => {
+          q('rail-live-dot').style.background = S.paused ? 'var(--danger)' : 'var(--ok)';
+        };
+      } catch {}
+    }
+
+    async function boot() {
+      try {
+        S.demoMode = localStorage.getItem('wallet_demo_mode') === '1';
+      } catch {
+        S.demoMode = false;
+      }
+
+      try {
+        S.themePref = localStorage.getItem('wallet_theme_pref') || 'auto';
+      } catch {
+        S.themePref = 'auto';
+      }
+      applyTheme(S.themePref, { persist: false, announce: false });
+      bindThemeWatcher();
+
+      document.querySelectorAll('#nav-rail .nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchView(btn.dataset.view));
+      });
+
+      document.querySelectorAll('.modal').forEach(m => {
+        m.addEventListener('click', (e) => {
+          if (e.target === m) {
+            const id = m.id.replace('modal-', '');
+            closeModal(id);
+          }
+        });
+      });
+
+      try {
+        await refreshAll();
+        connectStream();
+        setInterval(refreshAll, 15000);
+        try {
+          const seen = localStorage.getItem('wallet_tour_seen') === '1';
+          if (!seen && !S.txs.length) {
+            setTimeout(() => openTour(), 500);
+          }
+        } catch {}
+      } catch (e) {
+        showToast(e.message || 'Initialization failed', 'danger');
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>

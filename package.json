@@ -1,0 +1,28 @@
+{
+  "name": "solana-agent-wallet",
+  "version": "1.0.0",
+  "description": "Production-grade agentic wallet for Solana — MCP server, skill registry, policy engine, DeFi integrations",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node src/agent.js",
+    "mcp": "node mcp/server.js",
+    "dashboard": "node dashboard/server.js",
+    "setup": "node scripts/setup.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.0",
+    "better-sqlite3": "^12.6.2",
+    "bs58": "^6.0.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helius-sdk": "^2.2.2",
+    "uuid": "^13.0.0",
+    "ws": "^8.19.0",
+    "zod": "^3.24.2"
+  }
+}
