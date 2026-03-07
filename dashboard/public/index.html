@@ -1404,6 +1404,7 @@
 
       <div class="nav" id="nav-rail">
         <button class="nav-btn active" data-view="home">Wallet Home <span class="tag">Primary</span></button>
+        <button class="nav-btn" data-view="agents">Agents <span class="tag" id="nav-agents-count">0</span></button>
         <button class="nav-btn" data-view="activity">Activity <span class="tag" id="nav-activity-count">0</span></button>
         <button class="nav-btn" data-view="safety">Safety Center <span class="tag" id="nav-safety-count">0</span></button>
         <button class="nav-btn" data-view="sessions">Session Authority <span class="tag" id="nav-session-count">0</span></button>
@@ -1522,6 +1523,16 @@
           </article>
         </section>
 
+        <section class="view" id="view-agents">
+          <div class="section-head">
+            <div>
+              <h2>Agents</h2>
+              <p>Nine independent agents — each with its own encrypted wallet, role, and policy scope. No shared treasury actor.</p>
+            </div>
+          </div>
+          <div id="agents-grid" class="list"></div>
+        </section>
+
         <section class="view" id="view-activity">
           <div class="section-head">
             <div>
@@ -1615,6 +1626,16 @@
               <div id="safety-alerts" class="list"></div>
             </article>
           </div>
+
+          <article class="card stack">
+            <div class="section-head">
+              <div>
+                <h2>Recent Firewall Blocks</h2>
+                <p>Every blocked action — policy gate, firewall rule, scope violation, or simulation failure.</p>
+              </div>
+            </div>
+            <div id="safety-firewall-blocks" class="list"></div>
+          </article>
         </section>
 
         <section class="view" id="view-sessions">
@@ -2748,7 +2769,14 @@
             <td>${esc(agoUnix(tx.created_at))}</td>
             <td>
               <div>${esc(tx.skill || 'action')}</div>
-              <div class="muted mono">${esc(shortAddr(tx.agent_id || 'dashboard'))}</div>
+              ${(() => {
+                const ag = (S.core?.agents || []).find(a => a.id === tx.agent_id);
+                if (ag) {
+                  const cluster = String(S.core?.network || '').toLowerCase() === 'mainnet-beta' ? '' : '?cluster=devnet';
+                  return `<div class="muted">${esc(ag.name)}</div><div class="muted mono" style="font-size:10px;"><a href="https://solscan.io/account/${encodeURIComponent(ag.pubkey || '')}${cluster}" target="_blank" rel="noreferrer" style="color:inherit;">${esc(shortAddr(ag.pubkey || ''))}</a></div>`;
+                }
+                return `<div class="muted mono">${esc(shortAddr(tx.agent_id || 'dashboard'))}</div>`;
+              })()}
             </td>
             <td>${amount > 0 ? `${amount.toFixed(4)} ${esc(tx.token || 'SOL')}` : '—'}</td>
             <td>${statusTag(tx.status)}</td>
@@ -2798,6 +2826,36 @@
       }
 
       renderAgentSelects();
+
+      // Firewall blocks feed
+      const blockedTxs = (S.txs || []).filter(tx => {
+        const m = txMeta(tx);
+        return m.blocked || tx.status === 'blocked';
+      }).slice(0, 20);
+      const fwEl = q('safety-firewall-blocks');
+      if (!blockedTxs.length) {
+        fwEl.innerHTML = '<div class="empty">No blocked actions recorded. When policy or firewall blocks an action, it appears here with the exact reason.</div>';
+      } else {
+        fwEl.innerHTML = blockedTxs.map(tx => {
+          const m = txMeta(tx);
+          const ag = (S.core?.agents || []).find(a => a.id === tx.agent_id);
+          const agentLabel = ag ? ag.name : shortAddr(tx.agent_id || '');
+          const reason = m.reason || tx.error || 'blocked';
+          const riskTag = m.riskScore != null
+            ? `<span class="tag ${Number(m.riskScore) >= 60 ? 'warn' : 'info'}" style="font-size:10px;">risk ${m.riskScore}</span>`
+            : '';
+          return `
+            <div class="item">
+              <div class="head">
+                <div class="name">${esc(tx.skill || 'action')} · ${esc(agentLabel)}</div>
+                <div class="meta">${esc(agoUnix(tx.created_at))} · <span style="color:var(--danger);">${esc(reason)}</span></div>
+                <div class="pill-row">${statusTag(tx.status)}${riskTag}</div>
+              </div>
+              <a class="btn ghost" href="/api/txs/${encodeURIComponent(tx.id)}/receipt.html" target="_blank" rel="noreferrer">Receipt</a>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     function renderSessions() {
@@ -2898,9 +2956,68 @@
       q('session-scope').innerHTML = scopeOpts;
     }
 
+    function renderAgents() {
+      const agents = S.core?.agents || [];
+      const policy = S.policy || {};
+      const network = String(S.core?.network || '').toLowerCase();
+      const cluster = network === 'mainnet-beta' ? '' : '?cluster=devnet';
+      const grid = q('agents-grid');
+      q('nav-agents-count').textContent = String(agents.length);
+
+      if (!agents.length) {
+        grid.innerHTML = '<div class="empty">No agents registered yet. Start the dashboard server to seed the default 9 agents.</div>';
+        return;
+      }
+
+      grid.innerHTML = agents.map(agent => {
+        const scope = (policy.agentScopes || {})[agent.name] || [];
+        const scopeText = scope.length ? scope.join(', ') : 'all skills';
+        const frozen = (S.frozenAgents || []).includes(agent.id);
+        const online = agent.isOnline;
+        const statusColor = frozen ? 'var(--danger)' : online ? 'var(--ok)' : 'var(--muted)';
+        const statusLabel = frozen ? 'frozen' : online ? 'online' : 'offline';
+        const pubkey = agent.pubkey || '';
+        const solscanUrl = pubkey ? `https://solscan.io/account/${encodeURIComponent(pubkey)}${cluster}` : '#';
+        const roleLabel = (agent.role || '').replace(/_/g, ' ');
+
+        return `
+          <div class="item" style="align-items:flex-start; gap:12px;">
+            <div class="head" style="flex:1; min-width:0;">
+              <div class="name" style="display:flex; align-items:center; gap:8px;">
+                ${esc(agent.name)}
+                <span class="tag">${esc(roleLabel)}</span>
+                <span class="dot" style="background:${statusColor}; width:8px; height:8px; border-radius:50%; flex-shrink:0;" title="${esc(statusLabel)}"></span>
+              </div>
+              <div class="meta mono" style="margin-top:4px; display:flex; align-items:center; gap:6px;">
+                <a href="${solscanUrl}" target="_blank" rel="noreferrer" style="color:inherit;" title="Open on Solscan">${esc(pubkey || 'wallet not provisioned')}</a>
+                ${pubkey ? `<button class="top-icon-btn" style="font-size:10px; padding:2px 4px;" onclick="copyText('${esc(pubkey)}')" title="Copy pubkey">⧉</button>` : ''}
+              </div>
+              <div class="meta" style="margin-top:4px;">
+                <span class="tag info" style="font-size:10px;">scope: ${esc(scopeText.length > 60 ? scopeText.slice(0,60)+'…' : scopeText)}</span>
+                <span class="tag" style="font-size:10px;">every ${esc(String(agent.heartbeat_interval || 30))}s</span>
+                ${agent.tx_count > 0 ? `<span class="tag" style="font-size:10px;">${esc(String(agent.tx_count))} tx</span>` : ''}
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+              ${frozen
+                ? `<button class="btn ghost" onclick="unfreezeAgent('${esc(agent.id)}')">Unfreeze</button>`
+                : `<button class="btn ghost" onclick="freezeSelectedAgentById('${esc(agent.id)}')">Freeze</button>`
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function freezeSelectedAgentById(id) {
+      api('/api/freeze/' + encodeURIComponent(id), { method: 'POST' })
+        .then(d => { if (d.ok) { showToast('Agent frozen', 'warn'); refreshAll(); } else showToast(d.error || 'Failed', 'danger'); });
+    }
+
     function renderAll() {
       renderTop();
       renderHome();
+      renderAgents();
       renderActivity();
       renderSafety();
       renderSessions();

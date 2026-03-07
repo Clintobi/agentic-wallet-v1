@@ -4,11 +4,11 @@ This document is the source of truth for demo prep and judging alignment.
 
 ## End-of-Day 3 Acceptance Criteria
 
-- [ ] Core wallet actions are executed on Solana devnet with real signatures and clickable explorer links.
-- [ ] Safety Runtime is the primary story: pause, freeze, scoped sessions, simulation, firewall, and receipts are all visible.
-- [ ] Multi-agent independence is real: each agent has its own wallet identity and scope, not one shared treasury actor.
-- [ ] Demo script and docs map directly to judging rubric categories.
-- [ ] UI makes execution outcomes explicit (`no_route`, `failed`, `simulated`, `blocked`) with no ambiguous state.
+- [x] Core wallet actions are executed on Solana devnet with real signatures and clickable explorer links.
+- [x] Safety Runtime is the primary story: pause, freeze, scoped sessions, simulation, firewall, and receipts are all visible.
+- [x] Multi-agent independence is real: each agent has its own wallet identity and scope, not one shared treasury actor.
+- [x] Demo script and docs map directly to judging rubric categories.
+- [x] UI makes execution outcomes explicit (`no_route`, `failed`, `simulated`, `blocked`) with no ambiguous state.
 
 ## Rubric-to-Evidence Mapping
 
