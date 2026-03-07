@@ -41,6 +41,7 @@ import "../src/skills/accountant.js";
 import "../src/skills/autopilot.js";
 import "../src/skills/airdrop_farmer.js";
 import "../src/skills/social.js";
+import "../src/skills/memo.js";
 
 import { execute, listSkills }                       from "../src/skills/registry.js";
 import { getSimulatedPrice }                          from "../src/skills/guardian.js";

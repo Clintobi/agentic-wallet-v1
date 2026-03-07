@@ -1,6 +1,8 @@
 # Solana Agent Wallet
 
-A production-grade agentic wallet for Solana — built to the same standard as Coinbase AgentKit, awal, and Privy server wallets, but native to Solana.
+**Safe autonomous Solana wallet runtime.**
+
+Nine independent agents — each with its own encrypted keypair, role, and policy scope — execute real on-chain actions on Solana devnet with full Safety Runtime control: pause, freeze, firewall, simulation gate, and signed receipts.
 
 **Agents can: Send · Receive · Swap · Lend · Stake · Monitor**
 

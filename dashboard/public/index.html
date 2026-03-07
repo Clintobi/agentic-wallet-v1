@@ -1501,6 +1501,21 @@
 
           <div class="wallet-list home-assets-list" id="home-assets"></div>
 
+          <article class="card">
+            <div class="section-head">
+              <div>
+                <h2>Onchain Proof</h2>
+                <p>Real Solana devnet transaction signatures — not simulated, not mocked.</p>
+              </div>
+              <button class="btn brand" id="proof-btn" onclick="sendProofTx()">Send proof tx</button>
+            </div>
+            <div class="grid-2" style="margin-bottom:12px;">
+              <article class="metric"><span class="k">Confirmed On-chain</span><span class="v" id="proof-count">0</span></article>
+              <article class="metric"><span class="k">Network</span><span class="v" id="proof-network">devnet</span></article>
+            </div>
+            <div id="proof-sigs" class="list"></div>
+          </article>
+
           <article class="card home-outcome-card">
             <div class="section-head">
               <div>
@@ -3014,9 +3029,70 @@
         .then(d => { if (d.ok) { showToast('Agent frozen', 'warn'); refreshAll(); } else showToast(d.error || 'Failed', 'danger'); });
     }
 
+    function renderOnchainProof() {
+      const txs = S.txs || [];
+      const confirmed = txs.filter(tx => !!tx.sig && tx.status !== 'simulated' && tx.status !== 'blocked' && tx.status !== 'failed' && tx.status !== 'analysis');
+      const network = S.core?.network || 'devnet';
+      const cluster = network === 'mainnet-beta' ? '' : '?cluster=devnet';
+
+      q('proof-count').textContent = String(confirmed.length);
+      q('proof-network').textContent = network;
+
+      const container = q('proof-sigs');
+      if (!confirmed.length) {
+        container.innerHTML = '<div class="empty">No confirmed on-chain transactions yet. Click "Send proof tx" to write a Memo instruction to Solana devnet — guaranteed real signature.</div>';
+        return;
+      }
+
+      container.innerHTML = confirmed.slice(0, 8).map(tx => {
+        const ag = (S.core?.agents || []).find(a => a.id === tx.agent_id);
+        const agentLabel = ag ? ag.name : (tx.agent_id === 'dashboard' ? 'dashboard' : shortAddr(tx.agent_id || ''));
+        const solscanUrl = `https://solscan.io/tx/${encodeURIComponent(tx.sig)}${cluster}`;
+        return `
+          <div class="item" style="gap:8px;">
+            <div class="head" style="min-width:0; flex:1;">
+              <div class="name">${esc(tx.skill || 'action')} · ${esc(agentLabel)}</div>
+              <div class="muted mono" style="font-size:11px;">${esc(tx.sig)}</div>
+              <div class="meta">${esc(agoUnix(tx.created_at))}</div>
+            </div>
+            <a class="btn ghost" href="${solscanUrl}" target="_blank" rel="noreferrer" style="flex-shrink:0;">↗ Solscan</a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function sendProofTx() {
+      const btn = q('proof-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const d = await api('/api/skill', {
+          method: 'POST',
+          body: JSON.stringify({
+            skill: 'proof_of_execution',
+            params: { message: `demo-proof:${Date.now()}` },
+            agentId: 'dashboard',
+          }),
+        });
+        if (d.sig) {
+          const cluster = (S.core?.network || 'devnet') === 'mainnet-beta' ? '' : '?cluster=devnet';
+          showToast(`Confirmed on-chain! <a href="https://solscan.io/tx/${encodeURIComponent(d.sig)}${cluster}" target="_blank" rel="noreferrer" style="color:var(--ok);text-decoration:underline;">View on Solscan ↗</a>`, 'ok');
+          await refreshAll();
+        } else {
+          showToast(d.error || d.reason || 'Proof tx failed', 'danger');
+        }
+      } catch (e) {
+        showToast(e.message || 'Network error', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send proof tx';
+      }
+    }
+
     function renderAll() {
       renderTop();
       renderHome();
+      renderOnchainProof();
       renderAgents();
       renderActivity();
       renderSafety();

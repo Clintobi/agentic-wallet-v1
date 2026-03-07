@@ -377,11 +377,11 @@ register({
     if (network !== "mainnet-beta") {
       return {
         swapped: false,
-        reason: "unsupported_network_for_live_jupiter_swap",
+        reason: "no_route",
+        detail: "mainnet_only",
         network,
-        blocked: true,
         onchain: false,
-        note: "This build executes live Jupiter swaps on mainnet-beta. On devnet, use this flow as a safety/runtime demonstration.",
+        note: "Jupiter swap requires mainnet liquidity. On devnet: no route available (mainnet-only execution path). Connect to mainnet for live swap with real sig.",
       };
     }
 
