@@ -10,7 +10,8 @@
     "dev": "node src/agent.js",
     "mcp": "node mcp/server.js",
     "dashboard": "node dashboard/server.js",
-    "setup": "node scripts/setup.js"
+    "setup": "node scripts/setup.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
