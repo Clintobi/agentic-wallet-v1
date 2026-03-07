@@ -16,6 +16,7 @@
 
 import crypto from "crypto";
 import fs from "fs";
+import path from "path";
 import { Keypair, VersionedTransaction, Transaction } from "@solana/web3.js";
 
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, dkLen: 32 };
@@ -47,23 +48,38 @@ function decryptKey(encrypted, passphrase) {
   return JSON.parse(plain.toString());
 }
 
+function requirePassphrase(passphrase = process.env.WALLET_PASSPHRASE) {
+  if (!passphrase) {
+    throw new Error("WALLET_PASSPHRASE env var is required. Set it in .env");
+  }
+  return passphrase;
+}
+
+export function saveEncryptedKeypair(encPath, keypair, passphrase = process.env.WALLET_PASSPHRASE) {
+  const resolvedPassphrase = requirePassphrase(passphrase);
+  fs.mkdirSync(path.dirname(encPath), { recursive: true });
+  const encrypted = encryptKey(Array.from(keypair.secretKey), resolvedPassphrase);
+  fs.writeFileSync(encPath, JSON.stringify({ encrypted, version: 1 }, null, 2));
+}
+
+export function loadEncryptedKeypair(encPath, passphrase = process.env.WALLET_PASSPHRASE) {
+  const resolvedPassphrase = requirePassphrase(passphrase);
+  if (!fs.existsSync(encPath)) return null;
+  const { encrypted } = JSON.parse(fs.readFileSync(encPath, "utf-8"));
+  const secretArr = decryptKey(encrypted, resolvedPassphrase);
+  return Keypair.fromSecretKey(Uint8Array.from(secretArr));
+}
+
 // ── Load or create wallet ─────────────────────────────────────────────────────
 
 export function loadOrCreateKeypair(encPath) {
-  const passphrase = process.env.WALLET_PASSPHRASE;
-  if (!passphrase) throw new Error(
-    "WALLET_PASSPHRASE env var is required. Set it in .env"
-  );
+  const passphrase = requirePassphrase();
 
-  if (fs.existsSync(encPath)) {
-    const { encrypted } = JSON.parse(fs.readFileSync(encPath, "utf-8"));
-    const secretArr = decryptKey(encrypted, passphrase);
-    return Keypair.fromSecretKey(Uint8Array.from(secretArr));
-  }
+  const existing = loadEncryptedKeypair(encPath, passphrase);
+  if (existing) return existing;
 
   const kp        = Keypair.generate();
-  const encrypted = encryptKey(Array.from(kp.secretKey), passphrase);
-  fs.writeFileSync(encPath, JSON.stringify({ encrypted, version: 1 }, null, 2));
+  saveEncryptedKeypair(encPath, kp, passphrase);
   console.log(`[signer] New wallet created: ${kp.publicKey.toBase58()}`);
   console.log(`[signer] Encrypted at: ${encPath}`);
   return kp;

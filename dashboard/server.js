@@ -60,7 +60,7 @@ import { initDb, agentQueries, txQueries,
          alertQueries, payReqQueries, insertAlert,
          recordTx }                                   from "../src/db.js";
 import { getAllAgents, getAgent, createAgent,
-         setAgentStatus, seedDefaultAgents,
+         setAgentStatus, seedDefaultAgents, getAgentSigner,
          AGENT_ROLES }                                from "../src/agents.js";
 import { HeartbeatEngine }                           from "../src/heartbeat.js";
 import { handleHeliusWebhook }                       from "../src/webhooks.js";
@@ -111,12 +111,14 @@ app.use(express.json());
 app.use(express.static(path.join(__dir, "public")));
 
 function classifyTxStatus(result = {}) {
+  const reason = String(result?.reason || result?.error || "").toLowerCase();
+  const note = String(result?.note || "").toLowerCase();
+
+  if (reason.includes("no_route")) return "no_route";
   if (result?.ok === false && result?.blocked) return "blocked";
   if (result?.sig) return "confirmed";
   if (result?.ok === false) return "failed";
 
-  const reason = String(result?.reason || result?.error || "").toLowerCase();
-  const note = String(result?.note || "").toLowerCase();
   const simulated = result?.swapped === false
     || result?.staked === true
     || result?.deposited === true
@@ -284,8 +286,10 @@ app.post("/api/skill", async (req, res) => {
     || req.body?.sessionProof
     || null;
   const agent = getAgent(resolvedAgentId);
+  const agentSigner = agent ? getAgentSigner(agent.id, { autoProvision: true }) : null;
+  const executionSigner = agentSigner || signer;
   const context = {
-    signer,
+    signer: executionSigner,
     agentId: resolvedAgentId,
     agentName: agent?.name || null,
     agentRole: agent?.role || null,
@@ -315,7 +319,7 @@ app.post("/api/skill", async (req, res) => {
         sig: result?.sig || null,
         amountSol,
         token: params?.token || "SOL",
-        fromAddr: signer.publicKey.toBase58(),
+        fromAddr: executionSigner.publicKey.toBase58(),
         toAddr,
         details: result,
         error: result?.reason || result?.error || null,

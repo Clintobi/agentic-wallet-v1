@@ -13,14 +13,43 @@
  */
 
 import crypto from "crypto";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Keypair } from "@solana/web3.js";
 import { v4 as uuidv4 } from "uuid";
 import { agentQueries, logEvent } from "./db.js";
-import { createKeypairSigner } from "./signing/keypairSigner.js";
+import {
+  createKeypairSigner,
+  loadEncryptedKeypair,
+  saveEncryptedKeypair,
+} from "./signing/keypairSigner.js";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
+const AGENT_WALLETS_DIR = path.join(__dir, "../data/agent-wallets");
+const signerCache = new Map(); // agentId -> { signer, pubkey }
+
+fs.mkdirSync(AGENT_WALLETS_DIR, { recursive: true });
+
+function walletPathForAgent(agentId) {
+  return path.join(AGENT_WALLETS_DIR, `${agentId}.enc.json`);
+}
+
+function cacheSigner(agentId, keypair) {
+  const signer = createKeypairSigner(keypair);
+  signerCache.set(agentId, { signer, pubkey: signer.publicKey.toBase58() });
+  return signer;
+}
+
+function getCachedSigner(agentId, expectedPubkey) {
+  const cached = signerCache.get(agentId);
+  if (!cached) return null;
+  if (expectedPubkey && cached.pubkey !== expectedPubkey) {
+    signerCache.delete(agentId);
+    return null;
+  }
+  return cached.signer;
+}
 
 // ── Agent roles ────────────────────────────────────────────────────────────────
 
@@ -122,27 +151,29 @@ export function createAgent({ name, role = "trader_bull", heartbeatInterval = 30
   const keypair = Keypair.generate();
   const id      = uuidv4();
   const apiKey  = `saw_${crypto.randomBytes(24).toString("hex")}`;
+  const pubkey  = keypair.publicKey.toBase58();
+  saveEncryptedKeypair(walletPathForAgent(id), keypair);
 
   agentQueries.create.run({
     id,
     name,
-    pubkey: keypair.publicKey.toBase58(),
+    pubkey,
     role,
     api_key: apiKey,
     policy: JSON.stringify(policy),
     heartbeat_interval: heartbeatInterval,
   });
 
-  logEvent("agent_created", { id, name, role, pubkey: keypair.publicKey.toBase58() });
+  logEvent("agent_created", { id, name, role, pubkey });
 
   return {
     id,
     name,
-    pubkey:   keypair.publicKey.toBase58(),
+    pubkey,
     role,
     apiKey,
     keypair,  // only returned at creation time — not stored in DB
-    signer:   createKeypairSigner(keypair),
+    signer:   cacheSigner(id, keypair),
   };
 }
 
@@ -160,6 +191,44 @@ export function getAllAgents() {
 
 export function getAgent(idOrName) {
   return agentQueries.getById.get(idOrName) ?? agentQueries.getByName.get(idOrName);
+}
+
+export function getAgentSigner(idOrName, { autoProvision = true } = {}) {
+  const agent = getAgent(idOrName);
+  if (!agent) return null;
+
+  const expectedPubkey = agent.pubkey || null;
+  const cached = getCachedSigner(agent.id, expectedPubkey);
+  if (cached) return cached;
+
+  const encPath = walletPathForAgent(agent.id);
+  const existing = loadEncryptedKeypair(encPath);
+
+  if (existing) {
+    const loadedPubkey = existing.publicKey.toBase58();
+    if (loadedPubkey !== expectedPubkey) {
+      agentQueries.updatePubkey.run(loadedPubkey, agent.id);
+      logEvent("agent_pubkey_synced", {
+        agentId: agent.id,
+        previousPubkey: expectedPubkey,
+        pubkey: loadedPubkey,
+      }, agent.id);
+    }
+    return cacheSigner(agent.id, existing);
+  }
+
+  if (!autoProvision) return null;
+
+  const keypair = Keypair.generate();
+  const pubkey = keypair.publicKey.toBase58();
+  saveEncryptedKeypair(encPath, keypair);
+  agentQueries.updatePubkey.run(pubkey, agent.id);
+  logEvent("agent_wallet_provisioned", {
+    agentId: agent.id,
+    pubkey,
+    reason: "wallet_missing",
+  }, agent.id);
+  return cacheSigner(agent.id, keypair);
 }
 
 export function setAgentStatus(id, status) {

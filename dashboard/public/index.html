@@ -1532,6 +1532,7 @@
               <button class="filter-btn active" data-filter="all" onclick="setActivityFilter('all')">All</button>
               <button class="filter-btn" data-filter="confirmed" onclick="setActivityFilter('confirmed')">Confirmed</button>
               <button class="filter-btn" data-filter="blocked" onclick="setActivityFilter('blocked')">Blocked</button>
+              <button class="filter-btn" data-filter="no_route" onclick="setActivityFilter('no_route')">No Route</button>
               <button class="filter-btn" data-filter="failed" onclick="setActivityFilter('failed')">Failed</button>
             </div>
           </div>
@@ -2349,6 +2350,7 @@
       const s = String(status || '').toLowerCase();
       if (s === 'confirmed') return '<span class="tag ok">confirmed</span>';
       if (s === 'blocked') return '<span class="tag warn">blocked</span>';
+      if (s === 'no_route') return '<span class="tag warn">no route</span>';
       if (s === 'simulated') return '<span class="tag info">simulated</span>';
       if (s === 'analysis') return '<span class="tag info">analysis</span>';
       if (s === 'submitted') return '<span class="tag info">submitted</span>';

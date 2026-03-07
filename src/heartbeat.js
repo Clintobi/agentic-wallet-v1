@@ -19,21 +19,16 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { getAllAgents, setAgentStatus, heartbeat, AGENT_ROLES } from "./agents.js";
+import { getAllAgents, setAgentStatus, heartbeat, getAgentSigner } from "./agents.js";
 import { execute } from "./skills/registry.js";
 import { loadPolicy, getPolicy, isPaused, isAgentFrozen } from "./policy.js";
 import { getBalanceSol } from "./wallet.js";
 import { agentQueries, txQueries, spendQueries, logEvent, recordTx, get24hSpend, getLastTxTime } from "./db.js";
-import { loadOrCreateKeypair, createKeypairSigner } from "./signing/keypairSigner.js";
 import { runGuardianTick }  from "./skills/guardian.js";
 import { runAccountantTick } from "./skills/accountant.js";
 import { runAutopilotTick }  from "./skills/autopilot.js";
 import { runFarmerTick }     from "./skills/airdrop_farmer.js";
 import { socialTick }        from "./skills/social.js";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __dir = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Market signal generator ───────────────────────────────────────────────────
 
@@ -123,13 +118,15 @@ const analysisRoles = new Set([
 const liveSwapRoles = new Set(["trader_bear", "trader_bull"]);
 
 function classifyTxStatus({ result, sig, isAnalysisOnly }) {
+  const reason = String(result?.reason || result?.error || "").toLowerCase();
+  const note = String(result?.note || "").toLowerCase();
+
+  if (reason.includes("no_route")) return "no_route";
   if (result?.ok === false && result?.blocked) return "blocked";
   if (isAnalysisOnly) return "analysis";
   if (sig) return "confirmed";
   if (result?.ok === false) return "failed";
 
-  const reason = String(result?.reason || result?.error || "").toLowerCase();
-  const note = String(result?.note || "").toLowerCase();
   const simulated = result?.swapped === false
     || result?.staked === true
     || result?.deposited === true
@@ -216,26 +213,28 @@ export class HeartbeatEngine {
   _startAgent(agent) {
     if (this.timers.has(agent.id)) return; // already running
 
-    // Gasless design: treasury pays fees, agent is identified by its own pubkey.
-    // The signer uses the treasury keypair for signing (fee sponsorship),
-    // but reports the treasury's real pubkey so the policy engine checks the
-    // correct balance. Agent identity is tracked separately via agentId.
-    const signer = {
-      publicKey:       this.treasurySigner.publicKey, // treasury pubkey → correct balance for policy checks
-      signTransaction: this.treasurySigner.signTransaction.bind(this.treasurySigner),
-      signMessage:     this.treasurySigner.signMessage.bind(this.treasurySigner),
-      _keypair:        this.treasurySigner._keypair,
-      agentPubkey:     agent.pubkey, // agent identity preserved for logging
-    };
+    // Each agent signs with its own wallet to preserve true multi-agent
+    // independence (separate keys, balances, and explorer signatures).
+    const signer = getAgentSigner(agent.id, { autoProvision: true });
+    if (!signer) {
+      this.broadcast("agent_error", {
+        agentId: agent.id,
+        name: agent.name,
+        role: agent.role,
+        reason: "agent_signer_unavailable",
+      });
+      return;
+    }
 
     this.agentSigners.set(agent.id, signer);
+    const signerPubkey = signer.publicKey.toBase58();
 
     setAgentStatus(agent.id, "online");
     this.broadcast("agent_online", {
       agentId: agent.id,
       name:    agent.name,
       role:    agent.role,
-      pubkey:  agent.pubkey,
+      pubkey:  signerPubkey,
     });
 
     const intervalMs = (agent.heartbeat_interval || 30) * 1000;
@@ -371,7 +370,7 @@ export class HeartbeatEngine {
         sig,
         amountSol,
         token:     "SOL",
-        fromAddr:  signer.agentPubkey ?? signer.publicKey.toBase58(),
+        fromAddr:  signer.publicKey.toBase58(),
         toAddr,
         details:   result,
         error:     reason,

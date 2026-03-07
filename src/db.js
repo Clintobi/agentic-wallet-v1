@@ -204,6 +204,7 @@ export const agentQueries = {
   updateLastSeen: db.prepare(`UPDATE agents SET last_seen = unixepoch() WHERE id = ?`),
   incrementTxCount: db.prepare(`UPDATE agents SET total_txs = total_txs + 1, total_sol_sent = total_sol_sent + ? WHERE id = ?`),
   updatePolicy: db.prepare(`UPDATE agents SET policy = ? WHERE id = ?`),
+  updatePubkey: db.prepare(`UPDATE agents SET pubkey = ? WHERE id = ?`),
   delete: db.prepare(`DELETE FROM agents WHERE id = ?`),
 };
 
