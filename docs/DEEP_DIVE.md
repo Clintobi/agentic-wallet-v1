@@ -30,6 +30,39 @@ flowchart TD
   I --> G
 ```
 
+## Policy Engine: 11-Check Cascade
+
+Every skill execution passes through this ordered gate. The first failure immediately blocks execution — no subsequent checks run.
+
+```mermaid
+flowchart TD
+  START["execute(skill, params, context)"] --> C0{"0: emergencyPause?"}
+  C0 -- "paused=true" --> B0["❌ emergency_pause"]
+  C0 -- "ok" --> C1{"1: agent frozen?"}
+  C1 -- "frozen" --> B1["❌ agent_frozen"]
+  C1 -- "ok" --> C2{"2: skill in agent scope?"}
+  C2 -- "not in scope" --> B2["❌ scope_violation"]
+  C2 -- "ok" --> C3{"3: balance_after ≥ reserveSol?"}
+  C3 -- "below reserve" --> B3["❌ reserve_floor"]
+  C3 -- "ok" --> C4{"4: amountSol ≤ maxPerTxSol?"}
+  C4 -- "too large" --> B4["❌ per_tx_limit"]
+  C4 -- "ok" --> C5{"5: 24h spend ≤ dailyLimitSol?"}
+  C5 -- "over daily cap" --> B5["❌ daily_limit"]
+  C5 -- "ok" --> C5A{"5a: 1-min spend ≤ velocityFreezeSol?"}
+  C5A -- "over velocity" --> B5A["❄️ auto-freeze agent + ❌ blocked"]
+  C5A -- "ok" --> C6{"6: programs in allowlist?"}
+  C6 -- "blocked program" --> B6["❌ program_allowlist"]
+  C6 -- "ok" --> C7{"7: destination in allowlist?"}
+  C7 -- "blocked dest" --> B7["❌ destination_allowlist"]
+  C7 -- "ok" --> C8{"8: cooldown elapsed?"}
+  C8 -- "too soon" --> B8["❌ cooldown"]
+  C8 -- "ok" --> C9{"9: amount < approvalThreshold?"}
+  C9 -- "needs human" --> B9["⏸ human_approval_required"]
+  C9 -- "ok" --> ALLOW["✅ ALLOWED → pre-flight simulate → sign → broadcast"]
+```
+
+All thresholds live in `policy.json` and are **hot-reloadable** via `POST /api/policy` — no restart needed.
+
 ## Component Responsibilities
 - `src/skills/registry.js`
   - Single execution gateway.
@@ -45,6 +78,29 @@ flowchart TD
   - Receipt endpoints for auditability.
 - `src/db.js`
   - Durable execution trail for agents, transactions, events, rules, snapshots, alerts, payment requests.
+
+## Key Management & Wallet Encryption
+
+The treasury keypair is stored encrypted at rest using a two-step scheme:
+
+```
+scrypt(passphrase, salt, N=16384, r=8, p=1) → 32-byte key
+AES-256-GCM(key, iv, plaintext=secretKey) → ciphertext + authTag
+```
+
+**Blob format on disk (`wallet.enc.json`):**
+```
+salt (32 bytes) | iv (12 bytes) | authTag (16 bytes) | ciphertext (32 bytes)
+```
+
+**Why these choices:**
+- **scrypt** is memory-hard — resists GPU/ASIC brute force attacks on the passphrase.
+- **AES-256-GCM** provides authenticated encryption — tampering with the ciphertext is detected before decryption.
+- **N=16384** is the maximum scrypt cost that runs without memory errors on typical developer hardware (N=131072 was tested and caused OOM on a 8 GB machine).
+- **12-byte IV** is randomly generated on every encryption — never reused.
+- The decrypted secret key is held in memory only for the duration of a signing operation and is never written to disk in plaintext.
+
+**Production upgrade path:** Replace `src/signing/keypairSigner.js` with `src/signing/turnkeySigner.js` or `src/signing/privySigner.js`. The signer interface (`{ publicKey, signTransaction, signMessage }`) is identical — the rest of the stack is unchanged.
 
 ## Security Controls Implemented
 
@@ -70,6 +126,52 @@ If simulation fails, execution returns an error and no transaction is sent.
 - JSON receipt: `GET /api/txs/:txId/receipt`
 - Shareable HTML receipt: `GET /api/txs/:txId/receipt.html`
 - Receipt data includes status, skill, amount, addresses, reason/error, signature, explorer URL, and timestamps.
+
+## Error Handling & Resilience
+
+### RPC Timeout Wrapper
+All Solana RPC calls are wrapped in `withTimeout(promise, ms)`:
+```js
+// src/wallet.js
+async function withTimeout(promise, ms, timeoutError = "rpc_timeout") {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutError)), ms)),
+  ]);
+}
+```
+Timeouts: `getBalance` → 4.5s, `getParsedTokenAccounts` → 6s. If the RPC node is slow or rate-limited, the call fails fast rather than blocking the agent's heartbeat loop.
+
+### RPC Retry with Backoff
+`getBalanceSol` retries up to 3 times with exponential backoff (600ms, 1200ms, 1800ms) before propagating the error:
+```js
+for (let i = 0; i < retries; i++) {
+  try { ... }
+  catch (e) {
+    if (i === retries - 1) throw e;
+    await sleep(600 * (i + 1));
+  }
+}
+```
+
+### Graceful Skill Degradation
+Skills that fail (network error, RPC timeout, protocol unavailable) return a structured error object rather than throwing:
+```js
+{ ok: false, error: "rpc_timeout_get_balance", decision: "error" }
+```
+The heartbeat engine catches this, records the failed TX in the DB with status `"failed"`, broadcasts it to the dashboard, and continues the next tick. One failing agent does not crash others.
+
+### Pre-flight Simulation Guard
+If `simulateTransaction` itself throws (e.g. RPC is unreachable), the simulation failure is treated as a **warning** rather than a hard block — execution proceeds with a `simWarning` flag in the result:
+```js
+} catch (e) {
+  return { ok: true, warning: `simulation_rpc_error: ${e.message}` };
+}
+```
+This prevents a flaky devnet RPC from unnecessarily halting all fund-moving activity.
+
+### Devnet Awareness
+Skills that can't execute on devnet (Jupiter swap with no liquidity, live lending positions) return `{ ok: true, note: "devnet: simulated" }` rather than an error. The dashboard displays these as `status: simulated` — green, informative, not alarming.
 
 ## Threat Model
 
@@ -111,19 +213,6 @@ If simulation fails, execution returns an error and no transaction is sent.
 ## Design Tradeoffs
 - Some protocol integrations (Marginfi/Marinade intent flows) are currently simulated on devnet for reliability and demo safety.
 - This increases demonstration breadth but should be tightened with additional live transaction flows for production hardening.
-
-## Recommended Submission Narrative
-Use one message throughout demo and docs:
-
-"This wallet is autonomous by default, but policy-governed and operator-controllable under stress."
-
-Suggested live demo sequence:
-1. Trigger normal autonomous activity.
-2. Show policy block on a limit breach.
-3. Show a simulation-failed action prevented before send.
-4. Hit emergency pause and prove all actions halt.
-5. Show auto-freeze behavior and manual unfreeze.
-6. Open receipt page for a recent transaction.
 
 ## Evidence Pointers (Repo)
 - Skill gateway: `src/skills/registry.js`

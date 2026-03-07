@@ -21,10 +21,15 @@ This file specifies the wallet skills exposed by the registry in `src/skills/reg
   - Policy source: `policy.json` + in-memory updates via `POST /api/policy`.
 
 ## Access Levels
-- `agent-can-use`: callable by autonomous agents, MCP, and dashboard skill execution endpoint.
-- `agent-can-use (read)`: no on-chain fund movement by design.
-- `agent-can-use (fund-moving)`: may move funds and therefore can trigger policy checks.
-- `owner-control`: not a skill; dashboard/system endpoints such as pause/resume/freeze.
+
+| Level | Description |
+|---|---|
+| `agent-can-use (read)` | Safe for any agent at any time. No on-chain fund movement. No policy spend checks triggered. |
+| `agent-can-use` | Callable by any agent. Writes to local state (DB rules, alerts) but does not move funds on-chain. |
+| `agent-can-use (fund-moving)` | Moves real funds on-chain. Pre-flight simulated before broadcast. Full 11-check policy gate runs on `amountSol`/`amountUsdc`. Requires agent to be in scope, unfrozen, and within spend limits. |
+| `agent-can-use (fund-moving intent)` | Intent is recorded and protocol interaction is initiated, but devnet execution is simulated (no live on-chain spend). Same policy checks apply. Production deployment would execute the real transaction. |
+| `agent-can-use (read/intentional)` | Primarily a read operation, but initiates a state-changing intent (e.g. unstake request). No direct spend trigger; separate confirmation flow handles on-chain execution. |
+| `owner-control` | Not a skill. Privileged dashboard/API endpoints (`/api/pause`, `/api/resume`, `/api/freeze/:id`, `/api/policy`). Not routed through the skill registry. |
 
 ## Policy Checks Triggered (fund-moving requests)
 When amount > 0, skill execution may be blocked by `src/policy.js` checks:
@@ -84,12 +89,108 @@ These are not skill calls and should be treated as privileged controls:
 - `POST /api/unfreeze/:agentId`
 - `POST /api/policy`
 
+## Example Calls & Responses
+
+### 1. `get_balance` — read-only, no policy check
+
+**Request (MCP tool call / POST /api/skill):**
+```json
+{ "skill": "get_balance", "params": {}, "agentId": "ledger" }
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "sol": 1.4889,
+  "address": "8fdbGA8j5z6sds2sbZfdLzeyUcQmExwCxmQuVxehdFNB",
+  "fetchedAt": 1741305600000
+}
+```
+
+---
+
+### 2. `transfer_sol` — fund-moving, pre-flight simulated, full policy gate
+
+**Request:**
+```json
+{
+  "skill": "transfer_sol",
+  "params": { "toAddress": "So11111111111111111111111111111111111111112", "amountSol": 0.05 },
+  "agentId": "alpha"
+}
+```
+
+**Response (success):**
+```json
+{
+  "sig": "5Yz3...abc",
+  "amountSol": 0.05,
+  "toAddress": "So11111111111111111111111111111111111111112",
+  "explorer": "https://solscan.io/tx/5Yz3...abc?cluster=devnet",
+  "simUnitsUsed": 450
+}
+```
+
+**Response (blocked by policy — daily limit):**
+```json
+{
+  "ok": false,
+  "blocked": true,
+  "reason": "daily_limit: spent=1.9500+0.0500>2.0000"
+}
+```
+
+**Response (blocked by pre-flight simulation — insufficient funds):**
+```json
+{
+  "ok": false,
+  "blocked": true,
+  "simFailed": true,
+  "reason": "simulation_failed: {\"InsufficientFundsForRent\":{\"account_index\":0}}",
+  "logs": ["Program 11111111111111111111111111111111 invoke [1]", "Transfer: insufficient lamports ..."]
+}
+```
+
+---
+
+### 3. `autopilot_create_rule` — state-writing, no spend
+
+**Request:**
+```json
+{
+  "skill": "autopilot_create_rule",
+  "params": {
+    "agentId": "pilot",
+    "name": "Stake when cheap",
+    "condition": "price < 150",
+    "action": "marinade_stake 0.1"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "rule": {
+    "id": "rule_7f3a2c",
+    "agentId": "pilot",
+    "name": "Stake when cheap",
+    "condition": "price < 150",
+    "action": "marinade_stake 0.1",
+    "enabled": true,
+    "createdAt": 1741305600000
+  }
+}
+```
+
+---
+
 ## Notes
-- Skill count in current repo evidence: 29.
-- Pre-flight simulation is explicitly implemented for:
-  - `transfer_sol`
-  - `transfer_usdc`
-  - `jupiter_swap`
-- Transaction receipts are available via:
-  - `GET /api/txs/:txId/receipt`
-  - `GET /api/txs/:txId/receipt.html`
+- **Skill count:** 29 registered skills across 9 categories.
+- **Pre-flight simulation** is implemented for `transfer_sol`, `transfer_usdc`, and `jupiter_swap`. Simulation failure returns `{ ok: false, simFailed: true }` — no transaction is broadcast.
+- **Transaction receipts** are available after any fund-moving skill executes:
+  - JSON: `GET /api/txs/:txId/receipt`
+  - HTML (shareable): `GET /api/txs/:txId/receipt.html`
+- **Scope enforcement** applies to every skill call, including read-only skills. An agent not listed in `policy.json → agentScopes[agentId]` cannot call a skill even if it has no spend impact.

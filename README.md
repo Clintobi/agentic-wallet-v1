@@ -4,6 +4,8 @@ A production-grade agentic wallet for Solana — built to the same standard as C
 
 **Agents can: Send · Receive · Swap · Lend · Stake · Monitor**
 
+![Solana Agent Wallet Dashboard](docs/assets/dashboard.png)
+
 ---
 
 ## Architecture
