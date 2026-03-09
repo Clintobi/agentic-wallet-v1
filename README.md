@@ -10,166 +10,182 @@ Nine independent agents — each with its own encrypted keypair, role, and polic
 
 ---
 
+## For Judges — Start Here
+
+```bash
+git clone https://github.com/Clintobi/solana-agent-wallet.git
+cd solana-agent-wallet
+npm install
+cp .env.example .env
+# Edit .env — set WALLET_PASSPHRASE to any string
+
+WALLET_PASSPHRASE=contest2025 npm start
+# Open http://localhost:3000
+```
+
+> **One command. One URL. No external accounts or API keys needed for devnet.**
+
+See **[docs/JUDGING_GUIDE.md](./docs/JUDGING_GUIDE.md)** for the 6-minute live demo walkthrough and exact rubric evidence pointers.
+
+---
+
 ## Architecture
 
 ```
-LLM (Claude / GPT / any MCP client)
-  ↓ MCP tool calls
-┌─────────────────────────────────────┐
-│         Wallet MCP Server           │
-│  ┌──────────────────────────────┐   │
-│  │       Skill Registry         │   │
-│  │  transfer_sol   get_balance  │   │
-│  │  jupiter_swap   get_quote    │   │
-│  │  marginfi_*     marinade_*   │   │
-│  └──────────┬───────────────────┘   │
-│  ┌──────────▼───────────────────┐   │
-│  │       Policy Engine          │   │
-│  │  reserve · per-tx · daily    │   │
-│  │  cooldown · program-allowlist│   │
-│  │  destination · human-gate   │   │
-│  └──────────┬───────────────────┘   │
-│  ┌──────────▼───────────────────┐   │
-│  │      Signing Layer           │   │
-│  │  Keypair (dev) │ Turnkey     │   │
-│  │  Privy (prod)  │ Lit Protocol│   │
-│  └──────────┬───────────────────┘   │
-└────────────┼────────────────────────┘
-             ↓ Solana RPC (Helius)
-  Jupiter · Marginfi · Marinade · SPL
+Owner / Operator
+  ↓ Dashboard (http://localhost:3000)  │  Claude / GPT
+  ↓ REST + SSE                         │  ↓ MCP tool calls
+┌──────────────────────────────────────────────────────┐
+│                 Solana Agent Wallet                  │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │             Safety Runtime                      │ │
+│  │  emergencyPause · perAgentFreeze · firewall     │ │
+│  │  velocityAutoFreeze · preflight simulation      │ │
+│  │  signedReceipts · sessionScopes · idempotency   │ │
+│  └──────────────────┬──────────────────────────────┘ │
+│  ┌──────────────────▼──────────────────────────────┐ │
+│  │         11-Check Policy Engine                  │ │
+│  │  0: emergency pause    6: program allowlist     │ │
+│  │  1: agent frozen       7: destination allowlist │ │
+│  │  2: agent scope        8: cooldown              │ │
+│  │  3: reserve floor      9: human approval gate   │ │
+│  │  4: per-tx limit      5a: velocity auto-freeze  │ │
+│  │  5: daily limit                                 │ │
+│  └──────────────────┬──────────────────────────────┘ │
+│  ┌──────────────────▼──────────────────────────────┐ │
+│  │           Skill Registry (29 skills)            │ │
+│  │  transfer_sol   jupiter_swap   marginfi_*       │ │
+│  │  marinade_*     guardian       autopilot        │ │
+│  │  proof_of_execution  get_balance  +18 more      │ │
+│  └──────────────────┬──────────────────────────────┘ │
+│  ┌──────────────────▼──────────────────────────────┐ │
+│  │      Per-Agent Signing Layer (9 wallets)        │ │
+│  │  AES-256-GCM encrypted keypair per agent        │ │
+│  │  Swappable → Turnkey / Privy / Lit for prod     │ │
+│  └──────────────────┬──────────────────────────────┘ │
+└─────────────────────┼────────────────────────────────┘
+                      ↓ Solana RPC (devnet / Helius mainnet)
+         Jupiter · MarginFi · Marinade · SPL Memo
 ```
 
 ---
 
-## Prerequisites
-
-- **Node.js >= 20** (`node --version` to check)
-- A Solana devnet wallet or use the built-in encrypted wallet generator
-
 ## Quick Start
 
+### Prerequisites
+
+- **Node.js >= 20** (`node --version` to check)
+- No external accounts or API keys needed for devnet
+
+### Install & Run
+
 ```bash
-git clone https://github.com/Clintobi/agentic-wallet-v1.git
-cd agentic-wallet-v1
+git clone https://github.com/Clintobi/solana-agent-wallet.git
+cd solana-agent-wallet
 npm install
+
+# Optional: run setup checker
+node scripts/setup.js
+
+# Configure
 cp .env.example .env
-# Edit .env: set WALLET_PASSPHRASE
+# Edit .env — set WALLET_PASSPHRASE to any string
 
-# Start dashboard
-npm run dashboard
-# Open http://localhost:3000
+# Start dashboard (primary UI)
+WALLET_PASSPHRASE=your-phrase npm start
+# → http://localhost:3000
 
-# Or: MCP server (for Claude Desktop)
-npm run mcp
+# Or: MCP server for Claude Desktop
+WALLET_PASSPHRASE=your-phrase npm run mcp
 ```
+
+### Test Suite
+
+```bash
+WALLET_PASSPHRASE=test npm test
+# 109 tests, 0 failures
+# Covers: policy engine, skill registry, wallet helpers,
+#         session validation, firewall scoring, idempotency, retry logic
+```
+
+---
+
+## Safety Runtime
+
+The Safety Runtime is the hero feature. Every agent action passes through **11 ordered checks** before signing. First failure blocks immediately.
+
+| # | Check | Config key |
+|---|---|---|
+| 0 | **Emergency pause** — global kill switch | `emergencyPause` |
+| 1 | **Agent frozen** — per-agent manual or auto-freeze | `frozenAgents[]` |
+| 2 | **Agent scope** — skill allowlist per agent | `agentScopes{}` |
+| 3 | **Reserve floor** — wallet keeps ≥ N SOL always | `reserveSol` |
+| 4 | **Per-tx limit** — single action ceiling | `maxPerTxSol` |
+| 5 | **Daily rolling limit** — 24h spend cap per agent | `dailyLimitSol` |
+| 5a | **Velocity auto-freeze** — 1-min spike protection | `velocityFreezeSol` |
+| 6 | **Program allowlist** — only approved programs | `allowedPrograms[]` |
+| 7 | **Destination allowlist** — only approved recipients | `allowedDestinations[]` |
+| 8 | **Cooldown** — min seconds between actions | `cooldownSeconds` |
+| 9 | **Human approval gate** — large tx requires sign-off | `approvalThresholdSol` |
+
+All values live in `policy.json` — **hot-reloadable** without restart.
+
+**Beyond the policy engine:**
+- Transaction firewall with risk scoring (0–100) and structured block reasons
+- Pre-flight simulation before every fund-moving action
+- Idempotency keys — 24h replay-attack prevention for value-moving skills
+- Scoped sessions — TTL, skill allowlist, amount cap, destination allowlist, Ed25519 binding proof
+- Key rotation with full audit log
+- Signed receipts: `GET /api/txs/:txId/receipt` (JSON) · `receipt.html` (shareable)
 
 ---
 
 ## Skills
 
-29 registered skills across 9 categories. All fund-moving skills are policy-gated and pre-flight simulated before broadcast.
+29 registered skills across 9 categories. All fund-moving skills are policy-gated and pre-flight simulated.
 
-**Wallet**
-
-| Skill | Description |
+| Category | Skills |
 |---|---|
-| `get_balance` | SOL balance of treasury wallet |
-| `get_portfolio` | All token balances (SOL + SPL) |
-| `get_portfolio_pnl` | Portfolio P&L vs first snapshot |
+| **Wallet** | `get_balance`, `get_portfolio`, `get_portfolio_pnl` |
+| **Transfers** | `transfer_sol` ⬡, `transfer_usdc` ⬡ |
+| **Swaps** | `jupiter_swap` ⬡, `get_quote`, `get_sol_price` |
+| **Lending** | `marginfi_get_rates`, `marginfi_deposit` ◎, `marginfi_borrow` ◎ |
+| **Staking** | `get_stake_rate`, `marinade_stake` ◎, `marinade_unstake` |
+| **Security** | `guardian_check`, `get_alerts`, `ack_alerts` |
+| **Analytics** | `balance_snapshot`, `get_snapshots`, `get_yield_summary` |
+| **Autopilot** | `autopilot_create_rule`, `autopilot_list_rules`, `autopilot_toggle_rule`, `autopilot_delete_rule`, `rule_evaluation` |
+| **Payments** | `create_payment_request`, `list_payment_requests`, `cancel_payment_request`, `check_payment_status` |
+| **Onchain proof** | `proof_of_execution` ⬡ (SPL Memo — real devnet sig) |
 
-**Transfers**
+⬡ = real on-chain transaction with signature · ◎ = intent recorded (devnet sim; real on mainnet)
 
-| Skill | Description |
-|---|---|
-| `transfer_sol` | Send SOL — pre-flight simulated, policy-gated |
-| `transfer_usdc` | Send USDC — auto-creates destination ATA |
+For full input/output schemas, risk classes, policy triggers, and example calls: → **[SKILLS.md](./SKILLS.md)**
 
-**Swaps (Jupiter)**
+For security architecture, threat model, custody model: → **[docs/DEEP_DIVE.md](./docs/DEEP_DIVE.md)**
 
-| Skill | Description |
-|---|---|
-| `jupiter_swap` | Swap any token pair via best route |
-| `get_quote` | Preview swap output without executing |
-| `get_sol_price` | Live SOL/USD price |
+For the live demo and judging rubric: → **[docs/JUDGING_GUIDE.md](./docs/JUDGING_GUIDE.md)**
 
-**Lending (MarginFi)**
-
-| Skill | Description |
-|---|---|
-| `marginfi_get_rates` | Deposit/borrow APY for SOL/USDC |
-| `marginfi_deposit` | Deposit collateral |
-| `marginfi_borrow` | Borrow against collateral |
-
-**Staking (Marinade)**
-
-| Skill | Description |
-|---|---|
-| `get_stake_rate` | Current Marinade staking APY |
-| `marinade_stake` | Liquid-stake SOL → mSOL |
-| `marinade_unstake` | Unstake mSOL → SOL |
-
-**Guardian (Security Monitoring)**
-
-| Skill | Description |
-|---|---|
-| `guardian_check` | Price spike/crash detection, TX velocity alerts, balance threshold monitoring |
-| `get_alerts` | Retrieve security alerts (filterable by severity) |
-| `ack_alerts` | Acknowledge alerts |
-
-**Accountant (Balance Tracking)**
-
-| Skill | Description |
-|---|---|
-| `balance_snapshot` | Record timestamped balance snapshot |
-| `get_snapshots` | Retrieve historical snapshot series |
-| `get_yield_summary` | Compute yield earned since first snapshot |
-
-**Autopilot (IF/THEN Rules)**
-
-| Skill | Description |
-|---|---|
-| `autopilot_create_rule` | Create IF/THEN rule (e.g. "Stake 0.1 SOL if price < $150") |
-| `autopilot_list_rules` | List all active rules |
-| `autopilot_toggle_rule` | Enable/disable a rule |
-| `autopilot_delete_rule` | Remove a rule |
-| `rule_evaluation` | Evaluate all active rules against current market |
-
-**Payments (Solana Pay)**
-
-| Skill | Description |
-|---|---|
-| `create_payment_request` | Generate a Solana Pay URL + QR code |
-| `list_payment_requests` | List all open/completed requests |
-| `cancel_payment_request` | Cancel a pending request |
-| `check_payment_status` | Check on-chain settlement status |
-
-For the complete protocol-style spec (input schemas, access levels, policy triggers, example calls), see [`SKILLS.md`](./SKILLS.md).
-
-For a security-focused architecture write-up, see [`docs/DEEP_DIVE.md`](./docs/DEEP_DIVE.md).
-
-For Day 3 judging alignment (targets, live demo flow, and code evidence mapping), see [`docs/DAY3_RUBRIC_MAP.md`](./docs/DAY3_RUBRIC_MAP.md).
+For execution path truth (what's real vs simulated): → **[docs/TRUTH_MATRIX.md](./docs/TRUTH_MATRIX.md)**
 
 ---
 
-## Policy Engine
+## Multi-Agent Runtime
 
-All actions pass through **11 checks** before signing. First failure blocks execution immediately.
+Nine independent agents run autonomously on their own intervals:
 
-| # | Check | Description |
+| Agent | Role | Interval |
 |---|---|---|
-| 0 | **Emergency pause** | Global kill switch — halts ALL agents instantly |
-| 1 | **Agent frozen** | Per-agent freeze (manual or auto-triggered by velocity guard) |
-| 2 | **Agent scope** | Agent may only call skills in its allowlisted set |
-| 3 | **Reserve floor** | Wallet keeps ≥ `reserveSol` after the action |
-| 4 | **Per-tx limit** | Single action ≤ `maxPerTxSol` |
-| 5 | **Daily rolling limit** | 24h spend total ≤ `dailyLimitSol` per agent |
-| 5a | **Velocity auto-freeze** | Agent frozen if 1-min spend exceeds `velocityFreezeSol` |
-| 6 | **Program allowlist** | Called programs must be in `allowedPrograms` (empty = allow all) |
-| 7 | **Destination allowlist** | Recipients must be in `allowedDestinations` (empty = allow all) |
-| 8 | **Cooldown** | Min seconds between actions per agent |
-| 9 | **Human approval gate** | Actions ≥ `approvalThresholdSol` require explicit sign-off |
+| `sable` | Bear trader | 30s |
+| `nova` | Bull trader | 30s |
+| `axiom` | LP sentinel | 60s |
+| `crest` | Yield farmer | 120s |
+| `pilot` | Autopilot | 60s |
+| `harvest` | Airdrop farmer | 45s |
+| `ledger` | Accountant | 120s |
+| `shield` | Guardian | 20s |
+| `pay` | Social wallet | 300s |
 
-All values live in `policy.json` and are **hot-reloadable** — change them via the dashboard or `POST /api/policy` without restarting.
+Each agent has its own AES-256-GCM encrypted keypair, policy scope, spend tracking, and key rotation history.
 
 ---
 
@@ -182,7 +198,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "solana-wallet": {
       "command": "node",
-      "args": ["/path/to/solana-agent-wallet/mcp/server.js"],
+      "args": ["/absolute/path/to/solana-agent-wallet/mcp/server.js"],
       "env": {
         "WALLET_PASSPHRASE": "your-passphrase",
         "SOLANA_NETWORK": "devnet"
@@ -192,7 +208,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Then in Claude: *"What's my SOL balance?"* or *"Swap 0.1 SOL to USDC"*
+Then in Claude: *"What's my SOL balance?"* · *"Send 0.05 SOL to..."* · *"What's the Marinade staking APY?"*
 
 ---
 
@@ -210,42 +226,34 @@ register({
     amountSol: z.number().describe("Amount in SOL"),
   }),
   async handler({ amountSol }, { signer, agentId }) {
-    // ... build tx, sign, send
     return { sig, amountSol };
   },
 });
 ```
 
-Import it in `src/agent.js`, `mcp/server.js`, and `dashboard/server.js`. Done.
+Import in `dashboard/server.js`. Policy, idempotency, and receipts apply automatically.
 
 ---
 
 ## Upgrading the Signing Layer
 
-The signing layer is swappable. To use Turnkey in production:
-
 ```js
 // src/signing/turnkeySigner.js
-import { Turnkey } from "@turnkey/sdk-server";
-import { TurnkeySigner } from "@turnkey/solana";
-
 export function createTurnkeySigner(walletAddress) {
-  const client = new Turnkey({ ... });
   return {
     publicKey: new PublicKey(walletAddress),
-    async signTransaction(tx) { /* use TurnkeySigner */ },
-    async signMessage(msg)    { /* use TurnkeySigner */ },
+    async signTransaction(tx) { /* Turnkey API */ },
+    async signMessage(msg)    { /* Turnkey API */ },
   };
 }
 ```
 
-Pass to `runAgents({ signer: createTurnkeySigner(...) })`. Everything else stays the same.
+Pass `signer: createTurnkeySigner(...)` to `HeartbeatEngine`. Everything else — policy, registry, receipts — is unchanged.
 
 ---
 
-## Contest: Superteam Nigeria DeFi Developer Challenge
-Built for the $5,000 USDG prize pool. Industry-standard architecture inspired by:
-- **awal** (Coinbase) — skill module pattern, human-controlled spend limits
-- **CDP AgentKit** — action provider plugin system, human-in-the-loop hooks
-- **Privy server wallets** — delegation model, swappable signing layer
-- **Solana Agent Kit** — Solana-native DeFi integrations
+## Contest
+
+Built for the [Superteam Nigeria DeFi Developer Challenge](https://earn.superteam.fun) — $5,000 USDG prize pool.
+
+Architecture inspired by Coinbase AgentKit (awal), CDP AgentKit, Privy server wallets, and Solana Agent Kit — built native to Solana with a production-grade safety runtime as the primary differentiator.

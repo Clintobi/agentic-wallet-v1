@@ -7,6 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "start": "node dashboard/server.js",
     "dev": "node src/agent.js",
     "mcp": "node mcp/server.js",
     "dashboard": "node dashboard/server.js",

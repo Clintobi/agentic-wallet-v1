@@ -175,21 +175,181 @@ Skills that can't execute on devnet (Jupiter swap with no liquidity, live lendin
 
 ## Threat Model
 
-### Key Risks
-- Prompt-driven unsafe actions.
-- Runaway loops draining treasury.
-- Repeated failing transactions causing stale-state decisions.
-- Unapproved destination/program use.
-- High-frequency automated spend spikes.
+### Threat 1: Prompt Injection / Rogue AI Instruction
 
-### Mitigations in Repo
-- Scope allowlist gating before execution for all skill calls.
-- Spend/limit policy gating for amount-bearing actions.
-- Per-action and rolling spend limits.
-- Cooldown and human-approval threshold.
-- Emergency global pause and per-agent freeze.
-- Pre-flight simulation for major send/swap routes.
-- Persistent event/tx logging for forensic review.
+**Attack:** A malicious payload in a DeFi protocol response or user message tricks the AI agent into calling a skill with harmful parameters (e.g., `transfer_sol` to an attacker address).
+
+**Mitigations:**
+- `allowedDestinations[]` in policy.json — only pre-approved addresses can receive funds. Unknown destinations blocked at check #7.
+- `allowedPrograms[]` — only approved on-chain programs can be invoked. Check #6.
+- Firewall risk scoring (`src/firewall.js`) — new destinations and large amounts increase risk score; high scores block execution with structured reason.
+- Human approval gate — amounts above `approvalThresholdSol` require explicit operator sign-off (check #9).
+- Session allowlists — if a session restricts `allowedDestinations`, no instruction from within the session can override it.
+
+---
+
+### Threat 2: Runaway Agent Draining Funds
+
+**Attack:** An agent enters a bug loop, executing the same fund-moving action hundreds of times per minute.
+
+**Mitigations:**
+- `dailyLimitSol` — 24h rolling cap per agent (check #5). Agent is blocked once daily spend is exhausted.
+- `velocityFreezeSol` — 1-minute rolling spend threshold. Breaching it **auto-freezes** the agent (check #5a). Unfreeze requires explicit operator action.
+- `cooldownSeconds` — minimum time between successive actions from the same agent (check #8).
+- `maxPerTxSol` — single-action ceiling (check #4).
+- Idempotency keys — the same key within 24h returns cached result without re-executing (`src/idempotency.js`).
+
+---
+
+### Threat 3: Replay Attack
+
+**Attack:** A recorded valid request is resent to re-execute a fund-moving action (double-spend or repeated swap).
+
+**Mitigations:**
+- `IDEMPOTENT_SKILLS` enforcement — all fund-moving skills check a SHA-256 idempotency key (agent+skill scoped) before executing.
+- `recordIdempotency` stores the result for 24h; subsequent calls with the same key return the cached result with `idempotencyHit: true`.
+- Session TTL — sessions expire and cannot be replayed after their TTL.
+- `cooldownSeconds` — consecutive identical actions are rate-limited.
+
+---
+
+### Threat 4: Signer Key Compromise
+
+**Attack:** An attacker obtains the encrypted wallet file and attempts to decrypt or misuse the signing key.
+
+**Mitigations:**
+- AES-256-GCM + scrypt (N=16384) key derivation — brute force against the passphrase is memory-hard.
+- Per-agent keypairs — compromise of one agent's key does not expose other agents.
+- Key rotation — `rotateAgentKey()` generates a new keypair, invalidates the old one, logs the rotation event to the audit DB (`agent_key_versions`), and evicts the signer cache.
+- Decrypted key held in memory only during signing — never written to disk or logged.
+- Production upgrade: swap `keypairSigner.js` for Turnkey or Privy (HSM-backed, no plaintext key in runtime memory).
+
+---
+
+### Threat 5: RPC Node Tampering / MITM
+
+**Attack:** A compromised or malicious RPC node returns false balance data or silently drops transactions.
+
+**Mitigations:**
+- Pre-flight simulation — simulation runs against the same RPC. If the node lies about state, the simulation may pass incorrectly, but the broadcast transaction will still fail on-chain.
+- `confirmTransaction` with `"confirmed"` commitment — result is verified via multiple validators.
+- `withTimeout` wrappers on all RPC calls — a non-responsive node fails fast rather than blocking agents indefinitely.
+- Retry with backoff (`src/retry.js`) — transient RPC failures are retried; hard failures are classified and surfaced.
+- Production mitigation: use Helius or QuickNode with staked connection for higher reliability and HTTPS-only endpoints.
+
+---
+
+### Threat 6: Session Scope Escalation
+
+**Attack:** An AI agent issued a limited session (specific skill + max amount) attempts to call a higher-risk skill or exceed its amount cap.
+
+**Mitigations:**
+- `validateSessionForExecution()` enforces skill allowlist at execution time — not just at session issuance.
+- Amount cap (`maxPerTxSol`) checked per-call, not once at issue.
+- Destination allowlist in session — calls to unlisted addresses blocked with `destination_not_allowed`.
+- `scopeSubject` mismatch detection — a session issued for `nova` cannot be used by `sable`.
+- Session TTL — expired sessions are rejected even if the token is valid.
+
+---
+
+### Threat 7: Race Condition / Double-Spend
+
+**Attack:** Two concurrent requests for the same agent attempt to execute simultaneously, each passing the daily limit check before the other records its spend.
+
+**Mitigations:**
+- SQLite WAL mode with sequential writes — daily spend tracked in `agent_spend` DB; concurrent writes are serialized.
+- Idempotency key required for all fund-moving skills — same request from two concurrent threads returns cached result on the second call.
+- Per-agent spend tracked atomically in policy evaluation.
+
+---
+
+## Custody Model
+
+```
+┌─────────────────────────────────────┐
+│         Owner / Operator            │
+│  (holds WALLET_PASSPHRASE)          │
+└────────────────┬────────────────────┘
+                 │ decrypts on startup
+                 ▼
+┌─────────────────────────────────────┐
+│     Per-Agent Encrypted Keypairs    │
+│  data/agent-wallets/{id}.enc.json   │
+│  AES-256-GCM + scrypt passphrase    │
+└────────────────┬────────────────────┘
+                 │ held in memory (signer cache)
+                 ▼
+┌─────────────────────────────────────┐
+│         Signing Layer               │
+│  keypairSigner.js                   │
+│  interface: { publicKey,            │
+│    signTransaction, signMessage }   │
+└────────────────┬────────────────────┘
+                 │ swappable → Turnkey / Privy / Lit
+                 ▼
+┌─────────────────────────────────────┐
+│     Solana RPC (devnet / Helius)    │
+└─────────────────────────────────────┘
+```
+
+**Who controls the keys:**
+- The operator who provides `WALLET_PASSPHRASE` at startup.
+- No third party has access — no cloud KMS, no shared custody.
+- In production: replace `keypairSigner.js` with a hardware-backed signer (Turnkey, Privy server wallets, or Lit Protocol MPC). The swap requires no changes to the policy engine, skill registry, or dashboard.
+
+**Key rotation:**
+- `POST /api/agents/:id/rotate-key` — generates new keypair, re-encrypts with same passphrase, deactivates old key, logs to `agent_key_versions`.
+- Old public key is recorded in DB for audit; old secret key is immediately evicted from memory and overwritten on disk.
+
+---
+
+## Design Tradeoffs
+
+### SQLite vs PostgreSQL / Redis
+**Choice:** SQLite in WAL mode for all state (agents, transactions, sessions, idempotency, key versions).
+
+**Why SQLite:**
+- Zero infrastructure — one npm install, no Docker, no cloud service.
+- WAL mode supports concurrent reads while agents write.
+- For a contest demo with ≤9 agents and ≤1000 TPS of activity, SQLite is sufficient.
+
+**Production tradeoff:** High-volume multi-node deployments would need PostgreSQL (shared transaction log) and Redis (idempotency cache). The query interface (`keyVersionQueries`, `idempotencyQueries`) is abstracted — swapping the backend requires only replacing `src/db.js`.
+
+---
+
+### Devnet Intent Simulation vs Mainnet Real Execution
+**Choice:** MarginFi and Marinade skills record intent on devnet rather than executing live.
+
+**Why:**
+- MarginFi and Marinade devnet deployments are not actively maintained — liquidity is absent.
+- Simulating the intent with live rate data (fetched from mainnet APIs) gives a realistic demo without the brittleness of dead devnet contracts.
+- The intent path is explicitly documented in TRUTH_MATRIX.md — no inflation of claims.
+
+**Production upgrade:** Replace intent with `@mrgnlabs/marginfi-client-v2` or `@marinade.finance/marinade-ts-sdk` calls. The policy gate, simulation, and receipt pipeline are unchanged.
+
+---
+
+### In-Memory Signer Cache vs Turnkey / Privy
+**Choice:** Decrypted signers cached in-process Map after first use.
+
+**Why:**
+- Decrypting from disk on every transaction adds 50–100ms latency and repeated scrypt calls.
+- Cache is in-process only — not serialized, not logged, not network-accessible.
+- Cache is evicted on key rotation.
+
+**Production tradeoff:** In-memory keys are vulnerable to process memory inspection. Turnkey or Privy server wallets sign in a hardware-backed enclave — the decrypted key never exists in application memory. The `{ publicKey, signTransaction, signMessage }` interface makes this swap transparent to the rest of the stack.
+
+---
+
+### 11-Check vs Simpler Policy
+**Choice:** 11 ordered checks with first-failure-wins semantics.
+
+**Why:**
+- Ordered checks create a clear mental model: safety checks (pause/freeze/scope) run before spend checks (reserve/limits), before allowlist checks, before cooldown/approval.
+- First-failure-wins prevents bypassing a critical check by exploiting a later one.
+- All values are hot-reloadable — no restart needed to tighten policy.
+
+**Tradeoff:** More checks = more code to test. Mitigated by the 109-test suite covering every check independently.
 
 ## How AI Agents Interact With the Wallet
 

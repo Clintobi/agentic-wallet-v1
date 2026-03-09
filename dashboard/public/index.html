@@ -1556,10 +1556,11 @@
             </div>
             <div class="filter-row">
               <button class="filter-btn active" data-filter="all" onclick="setActivityFilter('all')">All</button>
-              <button class="filter-btn" data-filter="confirmed" onclick="setActivityFilter('confirmed')">Confirmed</button>
-              <button class="filter-btn" data-filter="blocked" onclick="setActivityFilter('blocked')">Blocked</button>
-              <button class="filter-btn" data-filter="no_route" onclick="setActivityFilter('no_route')">No Route</button>
-              <button class="filter-btn" data-filter="failed" onclick="setActivityFilter('failed')">Failed</button>
+              <button class="filter-btn" data-filter="confirmed" onclick="setActivityFilter('confirmed')" title="Real on-chain transactions with Solana signatures">Confirmed</button>
+              <button class="filter-btn" data-filter="blocked" onclick="setActivityFilter('blocked')" title="Actions stopped by Safety Runtime — no funds moved">Blocked</button>
+              <button class="filter-btn" data-filter="simulated" onclick="setActivityFilter('simulated')" title="Intent recorded — would execute on mainnet (MarginFi, Marinade)">Intent Recorded</button>
+              <button class="filter-btn" data-filter="no_route" onclick="setActivityFilter('no_route')" title="Jupiter swap with no devnet liquidity route — normal on devnet">No Route</button>
+              <button class="filter-btn" data-filter="failed" onclick="setActivityFilter('failed')" title="Actions that failed due to simulation, RPC, or runtime errors">Failed</button>
             </div>
           </div>
 
@@ -1979,12 +1980,12 @@
         <button class="modal-close" onclick="closeModal('send')">×</button>
       </div>
       <form class="form" onsubmit="submitSend(event)">
-        <div class="field"><label>Recipient address</label><input id="send-to" class="mono" required /></div>
-        <div class="field"><label>Amount SOL</label><input id="send-amount" type="number" step="0.0001" required /></div>
+        <div class="field"><label>Recipient address</label><input id="send-to" class="mono" placeholder="Base58 Solana address (e.g. 11111...1)" required /></div>
+        <div class="field"><label>Amount SOL</label><input id="send-amount" type="number" step="0.0001" placeholder="0.001" required /></div>
         <div class="field"><label>Session (optional)</label><select id="send-session"></select></div>
-        <div class="field"><label>Session proof (optional)</label><input id="send-proof" class="mono" placeholder="base64 or base58 signature" /></div>
-        <div class="field"><label>Idempotency key</label><input id="send-idempotency" class="mono" /></div>
-        <div class="inline-note">Before signing: simulation + firewall + session + policy checks all run automatically.</div>
+        <div class="field"><label>Session proof (optional)</label><input id="send-proof" class="mono" placeholder="base64 or base58 binding signature" /></div>
+        <div class="field"><label>Idempotency key <span style="font-weight:400; font-size:11px; opacity:0.6;">(auto-generated if blank — prevents double-send on retry)</span></label><input id="send-idempotency" class="mono" placeholder="Leave blank for auto-generated key" /></div>
+        <div class="inline-note">Safety Runtime runs before every send: pre-flight simulation → firewall risk score → session scope → 11-check policy gate. If any check fails, the send is blocked and no SOL moves.</div>
         <button class="btn brand" type="submit">Review and send</button>
       </form>
     </div>
@@ -2384,14 +2385,14 @@
 
     function statusTag(status) {
       const s = String(status || '').toLowerCase();
-      if (s === 'confirmed') return '<span class="tag ok">confirmed</span>';
-      if (s === 'blocked') return '<span class="tag warn">blocked</span>';
-      if (s === 'no_route') return '<span class="tag warn">no route</span>';
-      if (s === 'simulated') return '<span class="tag info">simulated</span>';
-      if (s === 'analysis') return '<span class="tag info">analysis</span>';
-      if (s === 'submitted') return '<span class="tag info">submitted</span>';
-      if (s === 'failed') return '<span class="tag danger">failed</span>';
-      if (s === 'pending') return '<span class="tag warn">pending</span>';
+      if (s === 'confirmed') return '<span class="tag ok" title="Real on-chain transaction — signature confirmed by Solana validators">confirmed</span>';
+      if (s === 'blocked') return '<span class="tag warn" title="Blocked by Safety Runtime — policy check, firewall rule, or scope violation. No funds moved.">blocked</span>';
+      if (s === 'no_route') return '<span class="tag warn" title="No liquidity route found on devnet (expected). On mainnet this would execute via Jupiter.">no route</span>';
+      if (s === 'simulated') return '<span class="tag info" title="Intent recorded — protocol interaction initiated but executed as devnet simulation. On mainnet this would be a real transaction.">intent recorded</span>';
+      if (s === 'analysis') return '<span class="tag info" title="Read-only analysis — no on-chain action taken">analysis</span>';
+      if (s === 'submitted') return '<span class="tag info" title="Transaction submitted to network — waiting for confirmation">submitted</span>';
+      if (s === 'failed') return '<span class="tag danger" title="Execution failed — check logs for error details">failed</span>';
+      if (s === 'pending') return '<span class="tag warn" title="Action is pending — waiting for confirmation or approval">pending</span>';
       return `<span class="tag">${esc(s || 'unknown')}</span>`;
     }
 

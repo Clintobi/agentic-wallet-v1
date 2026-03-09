@@ -47,39 +47,51 @@ When amount > 0, skill execution may be blocked by `src/policy.js` checks:
 
 Scope allowlist (`agent_scope`) is checked for all skill executions.
 
+## Risk Classes
+
+| Risk Class | Meaning |
+|---|---|
+| `none` | Read-only. No funds moved. No state written to chain. |
+| `low` | Writes local SQLite state only. No on-chain action. |
+| `medium` | Records an intent that would move funds on mainnet. Policy-gated. |
+| `high` | Moves real funds on-chain. Pre-flight simulated. Full 11-check policy gate. |
+
 ## Skill Catalog
 
-| Skill | Input Schema | Output Schema (summary) | Access Level | Policy Trigger |
-|---|---|---|---|---|
-| `get_balance` | `{}` | `{ sol, address, fetchedAt }` | `agent-can-use (read)` | `none` |
-| `get_portfolio` | `{}` | `{ address, sol, tokens[], fetchedAt }` | `agent-can-use (read)` | `none` |
-| `transfer_sol` | `{ toAddress: string, amountSol: number }` | success: `{ sig, amountSol, toAddress, explorer, simUnitsUsed }`; sim fail: `{ ok:false, blocked:true, reason, simFailed, logs }` | `agent-can-use (fund-moving)` | `amountSol` |
-| `transfer_usdc` | `{ toAddress: string, amountUsdc: number }` | `{ sig, amountUsdc, toAddress, explorer, simUnitsUsed }` | `agent-can-use (fund-moving)` | `amountUsdc` |
-| `jupiter_swap` | `{ inputMint: string, outputMint: string, amountSol: number, slippageBps?: number }` | route miss: `{ swapped:false, reason }`; success: `{ swapped:true, sig, simUnitsUsed, inputAmount, outputAmount, priceImpactPct, route, explorer }` | `agent-can-use (fund-moving)` | `amountSol` |
-| `get_sol_price` | `{}` | `{ price, source, fetchedAt }` | `agent-can-use (read)` | `none` |
-| `get_quote` | `{ inputMint: string, outputMint: string, amountSol: number, slippageBps?: number }` | `{ available, outputAmount?, priceImpactPct?, route?, reason? }` | `agent-can-use (read)` | `amountSol` |
-| `marginfi_get_rates` | `{ token: "SOL"\|"USDC" }` | `{ token, mint, depositApy, borrowApy, source, liquidity? }` | `agent-can-use (read)` | `none` |
-| `marginfi_deposit` | `{ token: "SOL"\|"USDC", amountSol: number }` | `{ deposited:true, protocol, token, amountSol, depositApy, projectedYearlyReturn, note }` | `agent-can-use (fund-moving intent)` | `amountSol` |
-| `marginfi_borrow` | `{ token: "SOL"\|"USDC", amountSol: number }` | `{ borrowed:true, protocol, token, amountSol, borrowApy, projectedInterestPerYear, note }` | `agent-can-use (fund-moving intent)` | `amountSol` |
-| `get_stake_rate` | `{}` | `{ protocol, stakingToken, apy, tvlSol, source, fetchedAt }` | `agent-can-use (read)` | `none` |
-| `marinade_stake` | `{ amountSol: number }` | `{ staked:true, solStaked, mSolReceived, stakingApy, projectedYearlyReturn, note }` | `agent-can-use (fund-moving intent)` | `amountSol` |
-| `marinade_unstake` | `{ amountMsol: number, instant?: boolean }` | `{ unstaked:true, mSolUnstaked, solReceived, method, waitTime, note }` | `agent-can-use (read/intentional)` | `none` |
-| `get_alerts` | legacy params (`agentId?`) | `{ ok, alerts[] }` | `agent-can-use (read)` | `none` |
-| `ack_alerts` | legacy params (`agentId`) | `{ ok, acked }` | `agent-can-use` | `none` |
-| `guardian_status` | legacy params (`{}`) | `{ ok, price, balance, unackedAlerts, critical, warnings, threatLevel }` | `agent-can-use (read)` | `none` |
-| `get_yield_summary` | legacy params (`agentId, limit?`) | `{ ok, first, last, yieldSol, yieldUsd, yieldPct, snapCount, sparkline[] }` | `agent-can-use (read)` | `none` |
-| `get_snapshots` | legacy params (`agentId, limit`) | `{ ok, snaps[] }` | `agent-can-use (read)` | `none` |
-| `get_portfolio_pnl` | legacy params (`{}`) | `{ ok, totalYieldUsd, breakdown[] }` | `agent-can-use (read)` | `none` |
-| `autopilot_create_rule` | legacy params (`agentId, name, condition, action`) | `{ ok, rule }` | `agent-can-use` | `none` |
-| `autopilot_list_rules` | legacy params (`agentId?`) | `{ ok, rules[] }` | `agent-can-use (read)` | `none` |
-| `autopilot_delete_rule` | legacy params (`ruleId`) | `{ ok, deleted }` | `agent-can-use` | `none` |
-| `autopilot_toggle_rule` | legacy params (`ruleId, enabled`) | `{ ok, ruleId, enabled }` | `agent-can-use` | `none` |
-| `get_farmer_status` | legacy params (`agentId`) | `{ ok, protocols[], activityScore, maxScore }` | `agent-can-use (read)` | `none` |
-| `get_farmer_activity` | legacy params (`agentId, limit?`) | `{ ok, activity[] }` | `agent-can-use (read)` | `none` |
-| `create_payment_request` | legacy params (`agentId, label, memo?, amountSol?, recipient?`) | `{ ok, payReqId, recipient, reference, solanaPay, blinkUrl, qrData }` | `agent-can-use` | `none` |
-| `list_payment_requests` | legacy params (`agentId?, status?`) | `{ ok, requests[] }` | `agent-can-use (read)` | `none` |
-| `cancel_payment_request` | legacy params (`payReqId`) | `{ ok, cancelled }` | `agent-can-use` | `none` |
-| `check_payment_status` | legacy params (`payReqId`) | `{ ok, payReqId, status, paidSig?, paidAt?, solanaPay }` | `agent-can-use (read)` | `none` |
+| Skill | Input Schema | Output Schema (summary) | Access Level | Risk Class | Policy Trigger |
+|---|---|---|---|---|---|
+| `get_balance` | `{}` | `{ sol, address, fetchedAt }` | `agent-can-use (read)` | `none` | `none` |
+| `get_portfolio` | `{}` | `{ address, sol, tokens[], fetchedAt }` | `agent-can-use (read)` | `none` | `none` |
+| `get_portfolio_pnl` | legacy params (`{}`) | `{ ok, totalYieldUsd, breakdown[] }` | `agent-can-use (read)` | `none` | `none` |
+| `transfer_sol` | `{ toAddress: string, amountSol: number }` | success: `{ sig, amountSol, toAddress, explorer, simUnitsUsed }`; blocked: `{ ok:false, blocked:true, reason }`; sim fail: `{ ok:false, simFailed:true, reason, logs }` | `agent-can-use (fund-moving)` | `high` | `amountSol` |
+| `transfer_usdc` | `{ toAddress: string, amountUsdc: number }` | `{ sig, amountUsdc, toAddress, explorer, simUnitsUsed }` | `agent-can-use (fund-moving)` | `high` | `amountUsdc` |
+| `proof_of_execution` | `{ memo?: string }` | `{ sig, memo, explorer, simUnitsUsed }` | `agent-can-use (fund-moving)` | `high` | `none` |
+| `jupiter_swap` | `{ inputMint: string, outputMint: string, amountSol: number, slippageBps?: number }` | route miss: `{ swapped:false, reason }`; success: `{ swapped:true, sig, inputAmount, outputAmount, priceImpactPct, route, explorer }` | `agent-can-use (fund-moving)` | `high` | `amountSol` |
+| `get_sol_price` | `{}` | `{ price, source, fetchedAt }` | `agent-can-use (read)` | `none` | `none` |
+| `get_quote` | `{ inputMint: string, outputMint: string, amountSol: number, slippageBps?: number }` | `{ available, outputAmount?, priceImpactPct?, route?, reason? }` | `agent-can-use (read)` | `none` | `none` |
+| `marginfi_get_rates` | `{ token: "SOL"\|"USDC" }` | `{ token, mint, depositApy, borrowApy, source, liquidity? }` | `agent-can-use (read)` | `none` | `none` |
+| `marginfi_deposit` | `{ token: "SOL"\|"USDC", amountSol: number }` | `{ deposited:true, protocol, token, amountSol, depositApy, projectedYearlyReturn, note }` | `agent-can-use (fund-moving intent)` | `medium` | `amountSol` |
+| `marginfi_borrow` | `{ token: "SOL"\|"USDC", amountSol: number }` | `{ borrowed:true, protocol, token, amountSol, borrowApy, projectedInterestPerYear, note }` | `agent-can-use (fund-moving intent)` | `medium` | `amountSol` |
+| `get_stake_rate` | `{}` | `{ protocol, stakingToken, apy, tvlSol, source, fetchedAt }` | `agent-can-use (read)` | `none` | `none` |
+| `marinade_stake` | `{ amountSol: number }` | `{ staked:true, solStaked, mSolReceived, stakingApy, projectedYearlyReturn, note }` | `agent-can-use (fund-moving intent)` | `medium` | `amountSol` |
+| `marinade_unstake` | `{ amountMsol: number, instant?: boolean }` | `{ unstaked:true, mSolUnstaked, solReceived, method, waitTime, note }` | `agent-can-use (read/intentional)` | `medium` | `none` |
+| `get_alerts` | legacy params (`agentId?`) | `{ ok, alerts[] }` | `agent-can-use (read)` | `none` | `none` |
+| `ack_alerts` | legacy params (`agentId`) | `{ ok, acked }` | `agent-can-use` | `low` | `none` |
+| `guardian_status` | legacy params (`{}`) | `{ ok, price, balance, unackedAlerts, critical, warnings, threatLevel }` | `agent-can-use (read)` | `none` | `none` |
+| `get_yield_summary` | legacy params (`agentId, limit?`) | `{ ok, first, last, yieldSol, yieldUsd, yieldPct, snapCount, sparkline[] }` | `agent-can-use (read)` | `none` | `none` |
+| `get_snapshots` | legacy params (`agentId, limit`) | `{ ok, snaps[] }` | `agent-can-use (read)` | `none` | `none` |
+| `autopilot_create_rule` | legacy params (`agentId, name, condition, action`) | `{ ok, rule }` | `agent-can-use` | `low` | `none` |
+| `autopilot_list_rules` | legacy params (`agentId?`) | `{ ok, rules[] }` | `agent-can-use (read)` | `none` | `none` |
+| `autopilot_delete_rule` | legacy params (`ruleId`) | `{ ok, deleted }` | `agent-can-use` | `low` | `none` |
+| `autopilot_toggle_rule` | legacy params (`ruleId, enabled`) | `{ ok, ruleId, enabled }` | `agent-can-use` | `low` | `none` |
+| `rule_evaluation` | legacy params (`agentId?`) | `{ ok, evaluated, triggered[] }` | `agent-can-use` | `low` | `none` |
+| `balance_snapshot` | legacy params (`agentId`) | `{ ok, snapshotId, sol, usd }` | `agent-can-use` | `low` | `none` |
+| `get_farmer_status` | legacy params (`agentId`) | `{ ok, protocols[], activityScore, maxScore }` | `agent-can-use (read)` | `none` | `none` |
+| `get_farmer_activity` | legacy params (`agentId, limit?`) | `{ ok, activity[] }` | `agent-can-use (read)` | `none` | `none` |
+| `create_payment_request` | legacy params (`agentId, label, memo?, amountSol?, recipient?`) | `{ ok, payReqId, recipient, reference, solanaPay, blinkUrl, qrData }` | `agent-can-use` | `low` | `none` |
+| `list_payment_requests` | legacy params (`agentId?, status?`) | `{ ok, requests[] }` | `agent-can-use (read)` | `none` | `none` |
+| `cancel_payment_request` | legacy params (`payReqId`) | `{ ok, cancelled }` | `agent-can-use` | `low` | `none` |
+| `check_payment_status` | legacy params (`payReqId`) | `{ ok, payReqId, status, paidSig?, paidAt?, solanaPay }` | `agent-can-use (read)` | `none` | `none` |
 
 ## Owner-Control (Non-Skill) Endpoints
 These are not skill calls and should be treated as privileged controls:
@@ -154,7 +166,50 @@ These are not skill calls and should be treated as privileged controls:
 
 ---
 
-### 3. `autopilot_create_rule` — state-writing, no spend
+### 3. `transfer_sol` — blocked by policy (per-tx limit)
+
+**Request:**
+```json
+{
+  "skill": "transfer_sol",
+  "params": { "toAddress": "So11111111111111111111111111111111111111112", "amountSol": 5.0 },
+  "agentId": "nova"
+}
+```
+
+**Response (blocked):**
+```json
+{
+  "ok": false,
+  "blocked": true,
+  "reason": "per_tx_limit: 5.0 > 0.5"
+}
+```
+
+No transaction was broadcast. No lamports moved.
+
+---
+
+### 4. `transfer_sol` — blocked by firewall (high risk score)
+
+**Response:**
+```json
+{
+  "ok": false,
+  "blocked": true,
+  "reason": "firewall_blocked",
+  "firewall": {
+    "riskScore": 85,
+    "allowed": false,
+    "blockReasons": ["unusually_large_amount", "new_destination"],
+    "flags": ["amount_spike"]
+  }
+}
+```
+
+---
+
+### 5. `autopilot_create_rule` — state-writing, no spend
 
 **Request:**
 ```json
