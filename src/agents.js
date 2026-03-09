@@ -18,7 +18,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Keypair } from "@solana/web3.js";
 import { v4 as uuidv4 } from "uuid";
-import { agentQueries, logEvent } from "./db.js";
+import { agentQueries, keyVersionQueries, logEvent } from "./db.js";
 import {
   createKeypairSigner,
   loadEncryptedKeypair,
@@ -229,6 +229,57 @@ export function getAgentSigner(idOrName, { autoProvision = true } = {}) {
     reason: "wallet_missing",
   }, agent.id);
   return cacheSigner(agent.id, keypair);
+}
+
+/**
+ * Rotate an agent's signing keypair.
+ * Old keypair is superseded; a new encrypted keypair is written to disk.
+ * Key version history is persisted in agent_key_versions for audit.
+ *
+ * @param {string} idOrName
+ * @param {string} reason
+ * @returns {{ agentId, oldPubkey, newPubkey }}
+ */
+export function rotateAgentKey(idOrName, reason = "manual") {
+  const agent = getAgent(idOrName);
+  if (!agent) throw new Error(`Agent not found: ${idOrName}`);
+
+  const oldPubkey = agent.pubkey;
+
+  // Generate and save new keypair
+  const newKeypair = Keypair.generate();
+  const newPubkey  = newKeypair.publicKey.toBase58();
+  const encPath    = walletPathForAgent(agent.id);
+  saveEncryptedKeypair(encPath, newKeypair);
+
+  // Update DB
+  agentQueries.updatePubkey.run(newPubkey, agent.id);
+
+  // Record key version history
+  keyVersionQueries.deactivatePrevious.run(agent.id, newPubkey);
+  keyVersionQueries.record.run(agent.id, newPubkey, reason);
+
+  // Evict stale signer from cache so next call re-loads new key
+  signerCache.delete(agent.id);
+
+  logEvent("agent_key_rotated", {
+    agentId:    agent.id,
+    agentName:  agent.name,
+    oldPubkey,
+    newPubkey,
+    reason,
+  }, agent.id);
+
+  return { agentId: agent.id, agentName: agent.name, oldPubkey, newPubkey, reason };
+}
+
+/**
+ * List key rotation history for an agent.
+ */
+export function getKeyHistory(idOrName) {
+  const agent = getAgent(idOrName);
+  if (!agent) throw new Error(`Agent not found: ${idOrName}`);
+  return keyVersionQueries.listByAgent.all(agent.id);
 }
 
 export function setAgentStatus(id, status) {

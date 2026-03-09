@@ -67,7 +67,13 @@ import { HeartbeatEngine }                           from "../src/heartbeat.js";
 import { handleHeliusWebhook }                       from "../src/webhooks.js";
 import { issueSession, listSessions,
          revokeSession, getSessionById,
+         validateSessionForExecution,
          buildSessionBindingMessage }                 from "../src/sessions.js";
+import { checkIdempotency, recordIdempotency,
+         pruneIdempotencyCache,
+         IDEMPOTENT_SKILLS }                         from "../src/idempotency.js";
+import { classifyError }                             from "../src/retry.js";
+import { rotateAgentKey, getKeyHistory }             from "../src/agents.js";
 import {
   actionsHeaders, handleOptions,
   getActionMeta, postActionFund,
@@ -88,6 +94,9 @@ const treasury   = signer.publicKey.toBase58();
 
 // Seed default agents if none exist
 seedDefaultAgents();
+
+// Prune expired idempotency records every hour
+setInterval(() => pruneIdempotencyCache(), 60 * 60 * 1000).unref();
 
 // ── SSE broadcast ─────────────────────────────────────────────────────────────
 
@@ -270,6 +279,28 @@ app.post("/api/agents/:id/start", (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/agents/:id/rotate-key — rotate agent signing keypair
+app.post("/api/agents/:id/rotate-key", (req, res) => {
+  try {
+    const reason = req.body?.reason || "manual";
+    const result = rotateAgentKey(req.params.id, reason);
+    broadcast("agent_key_rotated", result);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /api/agents/:id/key-history — list key rotation audit log
+app.get("/api/agents/:id/key-history", (req, res) => {
+  try {
+    const history = getKeyHistory(req.params.id);
+    res.json({ ok: true, history });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
 // ── Skill execution ───────────────────────────────────────────────────────────
 
 app.post("/api/skill", async (req, res) => {
@@ -277,33 +308,63 @@ app.post("/api/skill", async (req, res) => {
   if (!skill) return res.status(400).json({ ok: false, error: "skill required" });
 
   const resolvedAgentId = agentId || "dashboard";
-  const idempotencyKey = req.get("x-idempotency-key")
-    || req.body?.idempotencyKey
-    || null;
-  const sessionId = req.get("x-session-id")
-    || req.body?.sessionId
-    || null;
-  const sessionProof = req.get("x-session-proof")
-    || req.body?.sessionProof
-    || null;
-  const agent = getAgent(resolvedAgentId);
-  const agentSigner = agent ? getAgentSigner(agent.id, { autoProvision: true }) : null;
+  const idempotencyKey  = req.get("x-idempotency-key")  || req.body?.idempotencyKey  || null;
+  const sessionId       = req.get("x-session-id")       || req.body?.sessionId       || null;
+  const sessionProof    = req.get("x-session-proof")    || req.body?.sessionProof    || null;
+
+  const agent           = getAgent(resolvedAgentId);
+  const agentSigner     = agent ? getAgentSigner(agent.id, { autoProvision: true }) : null;
   const executionSigner = agentSigner || signer;
+
+  // ── 1. Idempotency check (value-moving skills only) ──────────────────────
+  if (idempotencyKey && IDEMPOTENT_SKILLS.has(skill)) {
+    const cached = checkIdempotency(idempotencyKey, resolvedAgentId, skill);
+    if (cached.hit) {
+      return res.json({ ...cached.result, idempotencyHit: true, cachedAt: cached.cachedAt });
+    }
+  }
+
+  // ── 2. Session scope validation ───────────────────────────────────────────
+  if (sessionId) {
+    const amountSol   = Number(params?.amountSol ?? 0) || 0;
+    const destination = params?.toAddress || params?.destination || params?.recipient || null;
+    const validation  = validateSessionForExecution({
+      sessionId,
+      scopeSubject: agent?.name || resolvedAgentId,
+      skillName:    skill,
+      amountSol,
+      destination,
+      params:       params ?? {},
+      idempotencyKey,
+      sessionProof,
+      requireBindingProof: false, // binding proof optional for dashboard calls
+    });
+    if (!validation.allowed) {
+      return res.status(403).json({
+        ok:      false,
+        blocked: true,
+        reason:  validation.reason,
+        session: validation.session,
+      });
+    }
+  }
+
   const context = {
-    signer: executionSigner,
-    agentId: resolvedAgentId,
-    agentName: agent?.name || null,
-    agentRole: agent?.role || null,
+    signer:        executionSigner,
+    agentId:       resolvedAgentId,
+    agentName:     agent?.name || null,
+    agentRole:     agent?.role || null,
     idempotencyKey,
     sessionId,
     sessionProof,
   };
+
   try {
-    const txId = uuidv4();
-    const result = await execute(skill, params ?? {}, context);
-    const status = classifyTxStatus(result);
+    const txId    = uuidv4();
+    const result  = await execute(skill, params ?? {}, context);
+    const status  = classifyTxStatus(result);
     const amountSol = Number(params?.amountSol ?? 0) || 0;
-    const toAddr = params?.toAddress
+    const toAddr  = params?.toAddress
       || params?.destination
       || params?.recipient
       || result?.toAddress
@@ -311,26 +372,32 @@ app.post("/api/skill", async (req, res) => {
       || result?.recipient
       || null;
 
+    // ── 3. Record idempotency result for confirmed/simulated executions ────
+    if (idempotencyKey && IDEMPOTENT_SKILLS.has(skill) && status !== "failed") {
+      recordIdempotency(idempotencyKey, resolvedAgentId, skill, result);
+    }
+
     if (shouldRecordSkillExecution({ skill, result, amountSol })) {
       recordTx({
-        id: txId,
-        agentId: resolvedAgentId,
+        id:       txId,
+        agentId:  resolvedAgentId,
         skill,
         status,
-        sig: result?.sig || null,
+        sig:      result?.sig || null,
         amountSol,
-        token: params?.token || "SOL",
+        token:    params?.token || "SOL",
         fromAddr: executionSigner.publicKey.toBase58(),
         toAddr,
-        details: result,
-        error: result?.reason || result?.error || null,
+        details:  result,
+        error:    result?.reason || result?.error || null,
       });
     }
 
     broadcast("skill_result", { txId, skill, params, status, result, ts: Date.now() });
     res.json({ ...result, txId, status });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    const classified = classifyError(e);
+    res.status(500).json({ ok: false, error: e.message, errorCode: classified.code, retryable: classified.retryable });
   }
 });
 

@@ -187,6 +187,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_idempotency_exp  ON skill_idempotency(expires_at);
   CREATE INDEX IF NOT EXISTS idx_sessions_scope   ON agent_sessions(scope_subject, expires_at DESC);
   CREATE INDEX IF NOT EXISTS idx_sessions_active  ON agent_sessions(expires_at, revoked_at);
+
+  CREATE TABLE IF NOT EXISTS agent_key_versions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id        TEXT NOT NULL,
+    pubkey          TEXT NOT NULL,
+    active_since    INTEGER NOT NULL DEFAULT (unixepoch()),
+    deactivated_at  INTEGER,
+    rotation_reason TEXT,
+    FOREIGN KEY (agent_id) REFERENCES agents(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_key_versions_agent ON agent_key_versions(agent_id, active_since DESC);
 `);
 
 // ── Agents ────────────────────────────────────────────────────────────────────
@@ -422,6 +434,26 @@ export function getLastTxTime(agentId) {
 export function insertAlert({ agentId, type, severity = "info", message, data = null }) {
   alertQueries.insert.run(agentId, type, severity, message, data ? JSON.stringify(data) : null);
 }
+
+// ── Agent key versions ────────────────────────────────────────────────────────
+
+export const keyVersionQueries = {
+  record: db.prepare(`
+    INSERT INTO agent_key_versions (agent_id, pubkey, rotation_reason)
+    VALUES (?, ?, ?)
+  `),
+  deactivatePrevious: db.prepare(`
+    UPDATE agent_key_versions
+    SET deactivated_at = unixepoch()
+    WHERE agent_id = ? AND deactivated_at IS NULL AND pubkey != ?
+  `),
+  listByAgent: db.prepare(`
+    SELECT * FROM agent_key_versions WHERE agent_id = ? ORDER BY active_since DESC
+  `),
+  getActive: db.prepare(`
+    SELECT * FROM agent_key_versions WHERE agent_id = ? AND deactivated_at IS NULL ORDER BY active_since DESC LIMIT 1
+  `),
+};
 
 // initDb is a no-op (schema runs at import time) — exported for explicit boot signalling
 export function initDb() {

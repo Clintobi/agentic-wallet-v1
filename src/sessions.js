@@ -133,7 +133,7 @@ export function issueSession({
     allowed_skills: JSON.stringify([...new Set(allowedSkills.map(String))]),
     allowed_programs: JSON.stringify([...new Set(allowedPrograms.map(String))]),
     allowed_destinations: JSON.stringify([...new Set(allowedDestinations.map(String))]),
-    max_per_tx_sol: Number.isFinite(Number(maxPerTxSol)) ? Number(maxPerTxSol) : null,
+    max_per_tx_sol: maxPerTxSol != null && Number.isFinite(Number(maxPerTxSol)) ? Number(maxPerTxSol) : null,
     ttl_seconds: ttl,
     expires_at: expiresAt,
   });

@@ -3018,6 +3018,7 @@
                 ? `<button class="btn ghost" onclick="unfreezeAgent('${esc(agent.id)}')">Unfreeze</button>`
                 : `<button class="btn ghost" onclick="freezeSelectedAgentById('${esc(agent.id)}')">Freeze</button>`
               }
+              <button class="btn ghost" style="font-size:11px;" onclick="rotateAgentKey('${esc(agent.id)}', '${esc(agent.name)}')" title="Rotate signing keypair — old key is immediately invalidated">Rotate Key</button>
             </div>
           </div>
         `;
@@ -3027,6 +3028,19 @@
     function freezeSelectedAgentById(id) {
       api('/api/freeze/' + encodeURIComponent(id), { method: 'POST' })
         .then(d => { if (d.ok) { showToast('Agent frozen', 'warn'); refreshAll(); } else showToast(d.error || 'Failed', 'danger'); });
+    }
+
+    function rotateAgentKey(id, name) {
+      if (!confirm(`Rotate signing keypair for ${name}?\n\nThe old key is immediately invalidated. The agent will provision a new on-chain address on next action. This cannot be undone.`)) return;
+      api('/api/agents/' + encodeURIComponent(id) + '/rotate-key', { method: 'POST', body: JSON.stringify({ reason: 'manual_dashboard' }) })
+        .then(d => {
+          if (d.ok) {
+            showToast(`Key rotated for ${name}. New pubkey: ${(d.newPubkey || '').slice(0, 12)}…`, 'ok');
+            refreshAll();
+          } else {
+            showToast(d.error || 'Rotation failed', 'danger');
+          }
+        });
     }
 
     function renderOnchainProof() {
