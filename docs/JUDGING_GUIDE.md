@@ -9,8 +9,8 @@ This guide maps every likely judging criterion to the exact file, endpoint, or U
 ## Quick Start for Judges
 
 ```bash
-git clone https://github.com/Clintobi/solana-agent-wallet.git
-cd solana-agent-wallet
+git clone https://github.com/Clintobi/agentic-wallet-v1.git
+cd agentic-wallet-v1
 npm install
 cp .env.example .env
 # Edit .env — set WALLET_PASSPHRASE to any string

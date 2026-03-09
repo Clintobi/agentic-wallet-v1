@@ -13,8 +13,8 @@ Nine independent agents — each with its own encrypted keypair, role, and polic
 ## For Judges — Start Here
 
 ```bash
-git clone https://github.com/Clintobi/solana-agent-wallet.git
-cd solana-agent-wallet
+git clone https://github.com/Clintobi/agentic-wallet-v1.git
+cd agentic-wallet-v1
 npm install
 cp .env.example .env
 # Edit .env — set WALLET_PASSPHRASE to any string
@@ -80,8 +80,8 @@ Owner / Operator
 ### Install & Run
 
 ```bash
-git clone https://github.com/Clintobi/solana-agent-wallet.git
-cd solana-agent-wallet
+git clone https://github.com/Clintobi/agentic-wallet-v1.git
+cd agentic-wallet-v1
 npm install
 
 # Optional: run setup checker
